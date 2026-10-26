@@ -213,11 +213,171 @@ class LedgerValidator:
         row.review_reasons = reasons
         row.needs_review = len(unique_flags) > 0
 
+        # Capture snapshot of validated fields for diffing during subsequent user edits
+        if row.original_data is None:
+            row.original_data = {
+                "date": row.date,
+                "customer": row.customer,
+                "customer_phone": row.customer_phone,
+                "item": row.item,
+                "quantity": row.quantity,
+                "unit": row.unit,
+                "unit_price": row.unit_price,
+                "amount": row.amount,
+                "paid": row.paid,
+                "due": row.due,
+            }
+
         return row
 
     def validate_batch(self, rows: List[ExtractedLedgerRow]) -> List[ExtractedLedgerRow]:
         """Validates all rows in a batch."""
         return [self.validate_row(r) for r in rows]
+
+    def revalidate_row(self, row: ExtractedLedgerRow) -> ExtractedLedgerRow:
+        """Revalidates an edited row while preserving unrelated uncertainty flags.
+
+        Compares current fields against row.original_data. Only flags associated
+        with fields that the user modified are cleared or re-evaluated.
+        """
+        orig = row.original_data or {}
+
+        # Build existing flag/reason mappings
+        flags: List[str] = list(row.validation_flags)
+        reasons: List[str] = list(row.review_reasons)
+
+        # 1. Null/Blank Sanitization for Optional Fields
+        if row.customer is not None:
+            c_str = str(row.customer).strip()
+            if not c_str or c_str.lower() in ("none", "null", "nan"):
+                row.customer = None
+            else:
+                row.customer = c_str
+
+        if row.customer_phone is not None:
+            p_str = str(row.customer_phone).strip()
+            if not p_str or p_str.lower() in ("none", "null", "nan"):
+                row.customer_phone = None
+            else:
+                row.customer_phone = p_str
+
+        if row.paid is not None:
+            p_dec = to_decimal(row.paid)
+            row.paid = float(p_dec) if p_dec is not None else None
+
+        if row.due is not None:
+            d_dec = to_decimal(row.due)
+            row.due = float(d_dec) if d_dec is not None else None
+
+        # 2. Date Field-Aware Revalidation
+        date_changed = (row.date != orig.get("date")) or (not orig and row.date)
+        if date_changed:
+            date_flag_types = {FLAG_INFERRED_YEAR, FLAG_AMBIGUOUS_DATE, FLAG_INVALID_DATE}
+            flags = [f for f in flags if f not in date_flag_types]
+            reasons = [
+                r for r in reasons
+                if not any(kw in r for kw in ("date", "Date", "Year missing", "calendar date"))
+            ]
+
+            if row.date:
+                canonical_date, date_flags, date_reasons = parse_and_validate_date(row.date)
+                for f in date_flags:
+                    if f not in flags:
+                        flags.append(f)
+                reasons.extend(date_reasons)
+                if canonical_date:
+                    row.date = canonical_date
+
+        # 3. Item Field-Aware Revalidation
+        item_changed = (row.item != orig.get("item")) or (not orig and row.item)
+        if item_changed:
+            flags = [
+                f for f in flags
+                if f not in (FLAG_MISSING_ITEM, FLAG_LOW_CONFIDENCE, FLAG_CANDIDATE_READINGS)
+            ]
+            reasons = [
+                r for r in reasons
+                if not any(kw in r for kw in ("Item name", "confidence on 'item'", "candidate readings for 'item'"))
+            ]
+            if not row.item or not str(row.item).strip():
+                flags.append(FLAG_MISSING_ITEM)
+                reasons.append("Item name was not detected in this line.")
+            else:
+                try:
+                    from core.catalog import get_catalog_manager
+                    match = get_catalog_manager().find_match(row.item, threshold=75.0)
+                    if match:
+                        row.standardized_item = match[0].name_en
+                except Exception:
+                    pass
+
+        # 4. Quantity Field-Aware Revalidation
+        qty_changed = (row.quantity != orig.get("quantity")) or (not orig and row.quantity is not None)
+        if qty_changed:
+            flags = [f for f in flags if f != FLAG_INVALID_QUANTITY]
+            reasons = [r for r in reasons if "Quantity must be greater" not in r]
+            if row.quantity is not None:
+                q_dec = to_decimal(row.quantity)
+                if q_dec is not None and q_dec <= 0:
+                    flags.append(FLAG_INVALID_QUANTITY)
+                    reasons.append(f"Quantity must be greater than zero (found {row.quantity}).")
+
+        # 5. Financial & Math Discrepancy Field-Aware Revalidation
+        money_changed = (
+            (row.amount != orig.get("amount"))
+            or (row.paid != orig.get("paid"))
+            or (row.due != orig.get("due"))
+            or not orig
+        )
+        if money_changed:
+            flags = [
+                f for f in flags
+                if f not in (FLAG_MISSING_AMOUNT, FLAG_NEGATIVE_VALUE, FLAG_MATH_MISMATCH)
+            ]
+            reasons = [
+                r for r in reasons
+                if not any(kw in r for kw in ("Total transaction amount", "cannot be negative", "Financial discrepancy"))
+            ]
+
+            amount_dec = to_decimal(row.amount)
+            paid_dec = to_decimal(row.paid)
+            due_dec = to_decimal(row.due)
+
+            if amount_dec is None:
+                flags.append(FLAG_MISSING_AMOUNT)
+                reasons.append("Total transaction amount is missing or invalid.")
+            else:
+                if amount_dec < 0:
+                    flags.append(FLAG_NEGATIVE_VALUE)
+                    reasons.append(f"Total amount cannot be negative (₹{amount_dec}).")
+                if paid_dec is not None and paid_dec < 0:
+                    flags.append(FLAG_NEGATIVE_VALUE)
+                    reasons.append(f"Paid amount cannot be negative (₹{paid_dec}).")
+                if due_dec is not None and due_dec < 0:
+                    flags.append(FLAG_NEGATIVE_VALUE)
+                    reasons.append(f"Due amount cannot be negative (₹{due_dec}).")
+
+                # Core Kirana arithmetic: paid + due == amount
+                if paid_dec is not None and due_dec is not None:
+                    expected_sum = (paid_dec + due_dec).quantize(Decimal("0.01"))
+                    actual_amount = amount_dec.quantize(Decimal("0.01"))
+                    if abs(expected_sum - actual_amount) > Decimal("0.01"):
+                        flags.append(FLAG_MATH_MISMATCH)
+                        reasons.append(
+                            f"Financial discrepancy: Paid (₹{paid_dec}) + Due (₹{due_dec}) = "
+                            f"₹{expected_sum}, which does not match Total Amount (₹{actual_amount})."
+                        )
+
+        # Deduplicate and finalize
+        unique_flags = list(dict.fromkeys(flags))
+        row.validation_flags = unique_flags
+        row.review_reasons = list(dict.fromkeys(reasons))
+        row.needs_review = len(unique_flags) > 0
+        return row
+
+    def revalidate_batch(self, rows: List[ExtractedLedgerRow]) -> List[ExtractedLedgerRow]:
+        """Revalidates all rows in an edited batch."""
+        return [self.revalidate_row(r) for r in rows]
 
 
 _GLOBAL_VALIDATOR: Optional[LedgerValidator] = None
@@ -229,3 +389,8 @@ def get_validator() -> LedgerValidator:
     if _GLOBAL_VALIDATOR is None:
         _GLOBAL_VALIDATOR = LedgerValidator()
     return _GLOBAL_VALIDATOR
+
+
+def revalidate_row(row: ExtractedLedgerRow) -> ExtractedLedgerRow:
+    """Convenience function for field-aware row revalidation."""
+    return get_validator().revalidate_row(row)

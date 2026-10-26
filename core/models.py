@@ -41,6 +41,7 @@ try:
         model_config = ConfigDict(from_attributes=True)
 
         id: Optional[str] = None
+        owner_id: Optional[str] = None
         name: str = Field(..., min_length=1, description="Shop or business name")
         owner_name: Optional[str] = None
         phone: Optional[str] = None
@@ -61,6 +62,10 @@ try:
         unit: str = Field(default="unit", max_length=30)
         unit_price: float = Field(default=0.0, ge=0.0)
         total_amount: float = Field(default=0.0, ge=0.0)
+        paid_amount: Optional[float] = None
+        due_amount: Optional[float] = None
+        batch_id: Optional[str] = None
+        row_index: Optional[int] = None
         transaction_type: TransactionType = TransactionType.CREDIT
         status: EntryStatus = EntryStatus.PENDING
         confidence_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
@@ -137,6 +142,51 @@ try:
         needs_review: bool = False
         review_reasons: list[str] = Field(default_factory=list)
         standardized_item: Optional[str] = None
+        original_data: Optional[Dict[str, Any]] = None
+        batch_id: Optional[str] = None
+        row_index: Optional[int] = None
+
+        def to_ledger_entry(
+            self,
+            shop_id: str,
+            batch_id: Optional[str] = None,
+            row_index: Optional[int] = None,
+            status: EntryStatus = EntryStatus.CONFIRMED,
+        ) -> LedgerEntry:
+            """Convert validated/edited row into a confirmed database ledger entry."""
+            cust = self.customer.strip() if isinstance(self.customer, str) and self.customer.strip() else None
+            phone = (
+                self.customer_phone.strip()
+                if isinstance(self.customer_phone, str) and self.customer_phone.strip()
+                else None
+            )
+
+            tx_type = TransactionType.CREDIT
+            if self.due is not None and self.due > 0:
+                tx_type = TransactionType.CREDIT
+            elif self.paid is not None and self.paid > 0 and (self.due is None or self.due == 0):
+                tx_type = TransactionType.CASH
+
+            return LedgerEntry(
+                shop_id=shop_id,
+                customer_name=cust,
+                customer_phone=phone,
+                item_name=self.item or "Unknown Item",
+                standardized_item_name=self.standardized_item,
+                quantity=float(self.quantity) if self.quantity is not None else 1.0,
+                unit=self.unit or "unit",
+                unit_price=float(self.unit_price) if self.unit_price is not None else 0.0,
+                total_amount=float(self.amount) if self.amount is not None else 0.0,
+                paid_amount=float(self.paid) if self.paid is not None else None,
+                due_amount=float(self.due) if self.due is not None else None,
+                batch_id=batch_id or self.batch_id,
+                row_index=row_index if row_index is not None else self.row_index,
+                transaction_type=tx_type,
+                status=status,
+                confidence_score=self.field_confidence.get("overall", 1.0) if self.field_confidence else None,
+                raw_ocr_text=self.raw_text or None,
+                entry_date=self.date,
+            )
 
     class ExtractionResult(BaseModel):
         """Batch extraction output from Gemma 4 or sample demo fixture."""
@@ -160,6 +210,7 @@ except ImportError:
     class Shop:  # type: ignore[no-redef]
         name: str
         id: Optional[str] = None
+        owner_id: Optional[str] = None
         owner_name: Optional[str] = None
         phone: Optional[str] = None
         address: Optional[str] = None
@@ -177,6 +228,10 @@ except ImportError:
         unit: str = "unit"
         unit_price: float = 0.0
         total_amount: float = 0.0
+        paid_amount: Optional[float] = None
+        due_amount: Optional[float] = None
+        batch_id: Optional[str] = None
+        row_index: Optional[int] = None
         transaction_type: TransactionType = TransactionType.CREDIT
         status: EntryStatus = EntryStatus.PENDING
         confidence_score: Optional[float] = None
@@ -243,6 +298,50 @@ except ImportError:
         needs_review: bool = False
         review_reasons: list[str] = field(default_factory=list)
         standardized_item: Optional[str] = None
+        original_data: Optional[Dict[str, Any]] = None
+        batch_id: Optional[str] = None
+        row_index: Optional[int] = None
+
+        def to_ledger_entry(
+            self,
+            shop_id: str,
+            batch_id: Optional[str] = None,
+            row_index: Optional[int] = None,
+            status: EntryStatus = EntryStatus.CONFIRMED,
+        ) -> LedgerEntry:
+            cust = self.customer.strip() if isinstance(self.customer, str) and self.customer.strip() else None
+            phone = (
+                self.customer_phone.strip()
+                if isinstance(self.customer_phone, str) and self.customer_phone.strip()
+                else None
+            )
+
+            tx_type = TransactionType.CREDIT
+            if self.due is not None and self.due > 0:
+                tx_type = TransactionType.CREDIT
+            elif self.paid is not None and self.paid > 0 and (self.due is None or self.due == 0):
+                tx_type = TransactionType.CASH
+
+            return LedgerEntry(
+                item_name=self.item or "Unknown Item",
+                shop_id=shop_id,
+                customer_name=cust,
+                customer_phone=phone,
+                standardized_item_name=self.standardized_item,
+                quantity=float(self.quantity) if self.quantity is not None else 1.0,
+                unit=self.unit or "unit",
+                unit_price=float(self.unit_price) if self.unit_price is not None else 0.0,
+                total_amount=float(self.amount) if self.amount is not None else 0.0,
+                paid_amount=float(self.paid) if self.paid is not None else None,
+                due_amount=float(self.due) if self.due is not None else None,
+                batch_id=batch_id or self.batch_id,
+                row_index=row_index if row_index is not None else self.row_index,
+                transaction_type=tx_type,
+                status=status,
+                confidence_score=self.field_confidence.get("overall", 1.0) if self.field_confidence else None,
+                raw_ocr_text=self.raw_text or None,
+                entry_date=self.date,
+            )
 
     @dataclass
     class ExtractionResult:  # type: ignore[no-redef]

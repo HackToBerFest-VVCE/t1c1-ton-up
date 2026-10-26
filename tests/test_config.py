@@ -44,13 +44,17 @@ class TestConfigSafety(unittest.TestCase):
         cfg = AppConfig(
             gemma_api_key="very_secret_gemma_key_xyz_7777",
             supabase_key="very_secret_supabase_key_abc_8888",
+            supabase_service_role_key="very_secret_service_role_key_9999",
             supabase_url="https://valid-project.supabase.co",
         )
         summary = cfg.get_safe_summary()
         self.assertNotIn("very_secret_gemma_key", str(summary))
         self.assertNotIn("very_secret_supabase_key", str(summary))
+        self.assertNotIn("very_secret_service_role_key", str(summary))
         self.assertTrue(summary["gemma_api_key_status"].endswith("7777"))
         self.assertTrue(summary["supabase_key_status"].endswith("8888"))
+        self.assertTrue(summary["supabase_service_role_key_status"].endswith("9999"))
+        self.assertTrue(cfg.is_supabase_admin_configured)
 
     def test_default_language_validation(self) -> None:
         for lang in SUPPORTED_LANGUAGES:

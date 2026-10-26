@@ -13,6 +13,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS shops (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     owner_name TEXT,
     phone VARCHAR(20),
@@ -23,6 +24,7 @@ CREATE TABLE IF NOT EXISTS shops (
 );
 
 -- Indexes for shops table
+CREATE INDEX IF NOT EXISTS idx_shops_owner_id ON shops(owner_id);
 CREATE INDEX IF NOT EXISTS idx_shops_phone ON shops(phone);
 CREATE INDEX IF NOT EXISTS idx_shops_name ON shops(name);
 CREATE INDEX IF NOT EXISTS idx_shops_created_at ON shops(created_at DESC);
@@ -43,6 +45,10 @@ CREATE TABLE IF NOT EXISTS ledger_entries (
     unit VARCHAR(30) NOT NULL DEFAULT 'unit',
     unit_price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     total_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    paid_amount NUMERIC(10, 2),
+    due_amount NUMERIC(10, 2),
+    batch_id VARCHAR(64),
+    row_index INT,
     transaction_type VARCHAR(20) NOT NULL DEFAULT 'credit'
         CHECK (transaction_type IN ('credit', 'debit', 'cash')),
     status VARCHAR(20) NOT NULL DEFAULT 'pending'
@@ -63,6 +69,7 @@ CREATE INDEX IF NOT EXISTS idx_ledger_entries_status ON ledger_entries(status);
 CREATE INDEX IF NOT EXISTS idx_ledger_entries_transaction_type ON ledger_entries(transaction_type);
 CREATE INDEX IF NOT EXISTS idx_ledger_entries_standardized_item ON ledger_entries(standardized_item_name);
 CREATE INDEX IF NOT EXISTS idx_ledger_entries_shop_date ON ledger_entries(shop_id, entry_date DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_ledger_entries_shop_batch_row ON ledger_entries(shop_id, batch_id, row_index) WHERE batch_id IS NOT NULL;
 
 -- -----------------------------------------------------------------------------
 -- 3. ITEM ALIASES TABLE
@@ -150,3 +157,191 @@ CREATE TRIGGER trigger_ledger_entries_updated_at
     BEFORE UPDATE ON ledger_entries
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+-- -----------------------------------------------------------------------------
+-- 7. ROW LEVEL SECURITY (RLS) POLICIES
+-- Enforces multi-tenant data isolation per authenticated shopkeeper.
+-- -----------------------------------------------------------------------------
+ALTER TABLE shops ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ledger_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE item_aliases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE corrections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+
+-- Shops policies
+DROP POLICY IF EXISTS "shops_owner_select" ON shops;
+CREATE POLICY "shops_owner_select" ON shops
+    FOR SELECT TO authenticated
+    USING (
+        owner_id = auth.uid()
+        OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+    );
+
+DROP POLICY IF EXISTS "shops_owner_insert" ON shops;
+CREATE POLICY "shops_owner_insert" ON shops
+    FOR INSERT TO authenticated
+    WITH CHECK (
+        ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+    );
+
+DROP POLICY IF EXISTS "shops_owner_update" ON shops;
+CREATE POLICY "shops_owner_update" ON shops
+    FOR UPDATE TO authenticated
+    USING (
+        owner_id = auth.uid()
+        OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+    )
+    WITH CHECK (
+        (owner_id = auth.uid())
+        OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+    );
+
+DROP POLICY IF EXISTS "shops_owner_delete" ON shops;
+CREATE POLICY "shops_owner_delete" ON shops
+    FOR DELETE TO authenticated
+    USING (
+        ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+    );
+
+-- Ledger entries policies
+DROP POLICY IF EXISTS "ledger_entries_owner_select" ON ledger_entries;
+CREATE POLICY "ledger_entries_owner_select" ON ledger_entries
+    FOR SELECT TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM shops
+            WHERE shops.id = ledger_entries.shop_id
+              AND (shops.owner_id = auth.uid() OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'))
+        )
+    );
+
+DROP POLICY IF EXISTS "ledger_entries_owner_insert" ON ledger_entries;
+CREATE POLICY "ledger_entries_owner_insert" ON ledger_entries
+    FOR INSERT TO authenticated
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM shops
+            WHERE shops.id = ledger_entries.shop_id
+              AND (shops.owner_id = auth.uid() OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'))
+        )
+    );
+
+DROP POLICY IF EXISTS "ledger_entries_owner_update" ON ledger_entries;
+CREATE POLICY "ledger_entries_owner_update" ON ledger_entries
+    FOR UPDATE TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM shops
+            WHERE shops.id = ledger_entries.shop_id
+              AND (shops.owner_id = auth.uid() OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'))
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM shops
+            WHERE shops.id = ledger_entries.shop_id
+              AND (shops.owner_id = auth.uid() OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'))
+        )
+    );
+
+DROP POLICY IF EXISTS "ledger_entries_owner_delete" ON ledger_entries;
+CREATE POLICY "ledger_entries_owner_delete" ON ledger_entries
+    FOR DELETE TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM shops
+            WHERE shops.id = ledger_entries.shop_id
+              AND (shops.owner_id = auth.uid() OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'))
+        )
+    );
+
+-- Item aliases policies
+DROP POLICY IF EXISTS "item_aliases_select" ON item_aliases;
+CREATE POLICY "item_aliases_select" ON item_aliases
+    FOR SELECT TO authenticated
+    USING (
+        shop_id IS NULL
+        OR EXISTS (
+            SELECT 1 FROM shops
+            WHERE shops.id = item_aliases.shop_id
+              AND (shops.owner_id = auth.uid() OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'))
+        )
+    );
+
+DROP POLICY IF EXISTS "item_aliases_owner_insert" ON item_aliases;
+CREATE POLICY "item_aliases_owner_insert" ON item_aliases
+    FOR INSERT TO authenticated
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM shops
+            WHERE shops.id = item_aliases.shop_id
+              AND (shops.owner_id = auth.uid() OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'))
+        )
+    );
+
+DROP POLICY IF EXISTS "item_aliases_owner_update" ON item_aliases;
+CREATE POLICY "item_aliases_owner_update" ON item_aliases
+    FOR UPDATE TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM shops
+            WHERE shops.id = item_aliases.shop_id
+              AND (shops.owner_id = auth.uid() OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'))
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM shops
+            WHERE shops.id = item_aliases.shop_id
+              AND (shops.owner_id = auth.uid() OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'))
+        )
+    );
+
+DROP POLICY IF EXISTS "item_aliases_owner_delete" ON item_aliases;
+CREATE POLICY "item_aliases_owner_delete" ON item_aliases
+    FOR DELETE TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM shops
+            WHERE shops.id = item_aliases.shop_id
+              AND (shops.owner_id = auth.uid() OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'))
+        )
+    );
+
+-- Corrections & Reports policies
+DROP POLICY IF EXISTS "corrections_owner_all" ON corrections;
+CREATE POLICY "corrections_owner_all" ON corrections
+    FOR ALL TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM shops
+            WHERE shops.id = corrections.shop_id
+              AND (shops.owner_id = auth.uid() OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'))
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM shops
+            WHERE shops.id = corrections.shop_id
+              AND (shops.owner_id = auth.uid() OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'))
+        )
+    );
+
+DROP POLICY IF EXISTS "reports_owner_all" ON reports;
+CREATE POLICY "reports_owner_all" ON reports
+    FOR ALL TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM shops
+            WHERE shops.id = reports.shop_id
+              AND (shops.owner_id = auth.uid() OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'))
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM shops
+            WHERE shops.id = reports.shop_id
+              AND (shops.owner_id = auth.uid() OR ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'))
+        )
+    );
+

@@ -91,6 +91,11 @@ try:
         # Supabase PostgreSQL Configuration
         supabase_url: str = Field(default="", description="Supabase project URL")
         supabase_key: str = Field(default="", description="Supabase anon or service key")
+        supabase_service_role_key: str = Field(
+            default="", description="Supabase service_role key for trusted server-side provisioning"
+        )
+        shop_id: Optional[str] = Field(default=None, description="Active Shop UUID if pre-configured")
+        admin_email: str = Field(default="", description="Administrator email address for shop provisioning oversight")
 
         # Application Tunables
         catalog_match_threshold: float = Field(
@@ -119,6 +124,13 @@ try:
                 and not is_placeholder_secret(self.supabase_key)
             )
 
+        @property
+        def is_supabase_admin_configured(self) -> bool:
+            return (
+                not is_placeholder_secret(self.supabase_url)
+                and not is_placeholder_secret(self.supabase_service_role_key)
+            )
+
         def get_safe_summary(self) -> Dict[str, Any]:
             """Returns config dict safe for logging/display without secret exposure."""
             return {
@@ -130,7 +142,9 @@ try:
                 "is_gemma_configured": self.is_gemma_configured,
                 "supabase_url": self.supabase_url if not is_placeholder_secret(self.supabase_url) else "<NOT_CONFIGURED>",
                 "supabase_key_status": mask_secret(self.supabase_key),
+                "supabase_service_role_key_status": mask_secret(self.supabase_service_role_key),
                 "is_supabase_configured": self.is_supabase_configured,
+                "is_supabase_admin_configured": self.is_supabase_admin_configured,
                 "catalog_match_threshold": self.catalog_match_threshold,
                 "upload_dir": self.upload_dir,
                 "max_upload_size_mb": self.max_upload_size_mb,
@@ -152,6 +166,9 @@ except ImportError:
         gemma_model_name: str = "gemma-4-26b-a4b-it"
         supabase_url: str = ""
         supabase_key: str = ""
+        supabase_service_role_key: str = ""
+        shop_id: Optional[str] = None
+        admin_email: str = ""
         catalog_match_threshold: float = 75.0
         upload_dir: str = "data/uploads"
         max_upload_size_mb: int = 15
@@ -173,6 +190,13 @@ except ImportError:
                 and not is_placeholder_secret(self.supabase_key)
             )
 
+        @property
+        def is_supabase_admin_configured(self) -> bool:
+            return (
+                not is_placeholder_secret(self.supabase_url)
+                and not is_placeholder_secret(self.supabase_service_role_key)
+            )
+
         def get_safe_summary(self) -> Dict[str, Any]:
             return {
                 "app_env": self.app_env,
@@ -183,7 +207,9 @@ except ImportError:
                 "is_gemma_configured": self.is_gemma_configured,
                 "supabase_url": self.supabase_url if not is_placeholder_secret(self.supabase_url) else "<NOT_CONFIGURED>",
                 "supabase_key_status": mask_secret(self.supabase_key),
+                "supabase_service_role_key_status": mask_secret(self.supabase_service_role_key),
                 "is_supabase_configured": self.is_supabase_configured,
+                "is_supabase_admin_configured": self.is_supabase_admin_configured,
                 "catalog_match_threshold": self.catalog_match_threshold,
                 "upload_dir": self.upload_dir,
                 "max_upload_size_mb": self.max_upload_size_mb,
@@ -236,6 +262,10 @@ def load_config(root_dir: Optional[Path] = None) -> AppConfig:
         except Exception:
             pass
 
+    supabase_service_key = (
+        _get("SUPABASE_SERVICE_ROLE_KEY", "") or _get("SUPABASE_SERVICE_KEY", "")
+    )
+
     return AppConfig(
         app_env=app_env,
         debug=debug,
@@ -244,6 +274,9 @@ def load_config(root_dir: Optional[Path] = None) -> AppConfig:
         gemma_model_name=gemma_model,
         supabase_url=_get("SUPABASE_URL", ""),
         supabase_key=_get("SUPABASE_KEY", ""),
+        supabase_service_role_key=supabase_service_key,
+        shop_id=_get("SHOP_ID", "").strip() or None,
+        admin_email=_get("ADMIN_EMAIL", "").strip().lower(),
         catalog_match_threshold=catalog_threshold,
         upload_dir=_get("UPLOAD_DIR", "data/uploads"),
         max_upload_size_mb=max_upload,
