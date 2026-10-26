@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -18,10 +19,16 @@ except ImportError:
     pd = None
 
 try:
+    import plotly.express as px
+except ImportError:
+    px = None
+
+try:
     import streamlit as st
 except ImportError:
     st = None  # Handled gracefully if run outside streamlit runtime
 
+from core.analytics import compute_dashboard_metrics
 from core.auth import admin_list_shopkeepers, is_admin_user, sign_in, sign_out, sign_up
 from core.catalog import get_catalog_manager
 from core.config import get_config
@@ -31,10 +38,12 @@ from core.db import (
     check_batch_exists,
     create_shop,
     fetch_available_shops,
+    fetch_confirmed_ledger_entries,
     get_db_manager,
     provision_shop_with_owner,
     save_confirmed_entries,
 )
+from core.exporter import export_ledger_to_excel
 from core.extractor import get_extractor
 from core.i18n import get_language_manager, t
 from core.image_preprocessor import get_preprocessor
@@ -573,22 +582,213 @@ def render_app() -> None:
             clear_user_session()
             st.rerun()
 
+    active_shop_id = st.session_state.get("selected_shop_id")
+    active_shop_name = "Kirana Store"
+    if active_shop_id:
+        user_id = auth_user.get("id") if auth_user else None
+        user_shops = fetch_available_shops(
+            owner_id=user_id,
+            access_token=st.session_state.get("auth_token"),
+            is_admin=is_admin,
+        )
+        for s in user_shops:
+            if s.get("id") == active_shop_id:
+                active_shop_name = s.get("name") or "Kirana Store"
+                break
+
     st.markdown(
-        f"`Milestone 2: Vision & Extraction Active` &nbsp;|&nbsp; "
+        f"`Milestone 5 & 6: Business Insights, Dashboard & Export Active` &nbsp;|&nbsp; "
         f"**AI Engine**: `{config.gemma_model_name}` &nbsp;|&nbsp; "
         f"**Preprocess**: OpenCV CLAHE & Deskew"
     )
 
     st.markdown("---")
 
-    # Tabs: Milestone 2 features + Milestone 1 diagnostic tabs
-    tab_upload, tab_catalog, tab_readiness, tab_i18n, tab_schema = st.tabs([
+    # Tabs: Milestone 5 & 6 Dashboard + Milestone 2 features + Milestone 1 diagnostic tabs
+    tab_dashboard, tab_upload, tab_catalog, tab_readiness, tab_i18n, tab_schema = st.tabs([
+        "📊 " + t("nav.dashboard", lang=selected_lang, default="Dashboard & Insights"),
         "📸 " + t("nav.upload", lang=selected_lang, default="Upload & Extract"),
         "📦 " + t("nav.catalog", lang=selected_lang, default="Product Catalog"),
         "⚙️ " + t("nav.settings", lang=selected_lang, default="System Readiness"),
         "🌐 " + t("common.language", lang=selected_lang, default="Languages"),
         "🗄️ Database Schema",
     ])
+
+    with tab_dashboard:
+        st.subheader(f"📊 {t('nav.dashboard', lang=selected_lang, default='Dashboard')} — {active_shop_name}")
+        st.caption("Milestone 5 & 6: Business Insights, Visual Trends, Customer Dues & Excel Export")
+
+        current_auth_token = st.session_state.get("auth_token")
+
+        if not active_shop_id:
+            st.warning("⚠️ " + t("editor.no_shop_warning", lang=selected_lang, default="Please select or register an active shop in the sidebar before viewing dashboard analytics."))
+        else:
+            with st.spinner("Fetching confirmed records from Supabase..."):
+                confirmed_records = fetch_confirmed_ledger_entries(shop_id=active_shop_id, access_token=current_auth_token)
+
+            if not confirmed_records:
+                st.info("ℹ️ " + t("dashboard.no_data_hint", lang=selected_lang, default="No confirmed transactions found for this shop yet. Upload and confirm ledger sheets in the 'Upload & Extract' tab to view analytics."))
+            else:
+                metrics = compute_dashboard_metrics(confirmed_records, lang=selected_lang)
+                summary = metrics["summary"]
+                top_products = metrics["top_products"]
+                customer_balances = metrics["customer_balances"]
+                insights = metrics["insights"]
+
+                # 1. KPI Cards Row
+                active_customers_count = len([c for c in customer_balances if c.get("customer_name")])
+                k1, k2, k3, k4, k5 = st.columns(5)
+                with k1:
+                    st.metric(
+                        label=t("dashboard.total_sales", lang=selected_lang, default="Total Sales (₹)"),
+                        value=f"₹{summary['total_sales']:.2f}",
+                    )
+                with k2:
+                    st.metric(
+                        label=t("dashboard.total_collected", lang=selected_lang, default="Total Collected (₹)"),
+                        value=f"₹{summary['total_collected']:.2f}",
+                    )
+                with k3:
+                    st.metric(
+                        label=t("dashboard.total_credit", lang=selected_lang, default="Outstanding Dues (₹)"),
+                        value=f"₹{summary['total_due']:.2f}",
+                        delta=f"₹{summary['total_due']:.2f} credit" if summary["total_due"] > 0 else "0 dues",
+                        delta_color="inverse",
+                    )
+                with k4:
+                    st.metric(
+                        label=t("dashboard.transaction_count", lang=selected_lang, default="Total Transactions"),
+                        value=summary["transaction_count"],
+                    )
+                with k5:
+                    st.metric(
+                        label=t("dashboard.active_customers", lang=selected_lang, default="Active Customers"),
+                        value=active_customers_count,
+                    )
+
+                st.markdown("---")
+
+                # 2. Plotly Charts Row
+                chart_col1, chart_col2 = st.columns(2)
+
+                with chart_col1:
+                    if px is not None and pd is not None:
+                        cash_amt = summary["total_collected"]
+                        due_amt = summary["total_due"]
+                        if cash_amt > 0 or due_amt > 0:
+                            payment_df = pd.DataFrame([
+                                {"Category": t("common.cash", lang=selected_lang, default="Cash (Jama)"), "Amount": cash_amt},
+                                {"Category": t("common.credit", lang=selected_lang, default="Credit (Udhaar)"), "Amount": due_amt},
+                            ])
+                            fig_payment = px.pie(
+                                payment_df,
+                                values="Amount",
+                                names="Category",
+                                title=t("dashboard.payment_distribution", lang=selected_lang, default="Payment Distribution (Cash vs. Credit)"),
+                                hole=0.45,
+                                color="Category",
+                                color_discrete_map={
+                                    t("common.cash", lang=selected_lang, default="Cash (Jama)"): "#10b981",
+                                    t("common.credit", lang=selected_lang, default="Credit (Udhaar)"): "#ef4444",
+                                },
+                            )
+                            fig_payment.update_traces(textposition="inside", textinfo="percent+label")
+                            fig_payment.update_layout(margin=dict(t=40, b=20, l=20, r=20), height=320)
+                            st.plotly_chart(fig_payment, use_container_width=True)
+                        else:
+                            st.info("No monetary data available to chart payment distribution.")
+                    else:
+                        st.info("Plotly is required for interactive payment charts.")
+
+                with chart_col2:
+                    if px is not None and pd is not None:
+                        top_rev_items = top_products.get("by_revenue", [])[:5]
+                        if top_rev_items:
+                            df_top = pd.DataFrame(top_rev_items)
+                            df_top_sorted = df_top.sort_values(by="total_revenue", ascending=True)
+                            fig_products = px.bar(
+                                df_top_sorted,
+                                x="total_revenue",
+                                y="product_name",
+                                orientation="h",
+                                title=t("dashboard.top_products_chart", lang=selected_lang, default="Top 5 Products by Revenue"),
+                                labels={
+                                    "total_revenue": t("dashboard.total_sales", lang=selected_lang, default="Revenue (₹)"),
+                                    "product_name": t("ledger.item_name", lang=selected_lang, default="Product"),
+                                },
+                                text="total_revenue",
+                                color="total_revenue",
+                                color_continuous_scale="Blues",
+                            )
+                            fig_products.update_traces(texttemplate="₹%{text:.2f}", textposition="outside")
+                            fig_products.update_layout(
+                                showlegend=False,
+                                coloraxis_showscale=False,
+                                margin=dict(t=40, b=20, l=20, r=20),
+                                height=320,
+                            )
+                            st.plotly_chart(fig_products, use_container_width=True)
+                        else:
+                            st.info("No product data available to chart.")
+                    else:
+                        st.info("Plotly is required for interactive product charts.")
+
+                st.markdown("---")
+
+                # 3. Multilingual Business Insights Section
+                st.subheader(f"💡 {t('insights.title', lang=selected_lang, default='Business Intelligence & Insights')}")
+                if insights:
+                    for ins in insights:
+                        if ins.get("type") == "warning":
+                            st.warning(f"⚠️ **{ins.get('title', '')}**: {ins.get('message', '')}")
+                        else:
+                            st.success(f"📈 **{ins.get('title', '')}**: {ins.get('message', '')}")
+                else:
+                    st.info("No insight alerts at this time. All customer accounts and product sales are balanced.")
+
+                st.markdown("---")
+
+                # 4. Customer Outstanding Dues Table
+                st.subheader(f"👥 {t('dashboard.customer_dues_title', lang=selected_lang, default='Customer Outstanding Dues (Udhaar Khata)')}")
+                if customer_balances:
+                    dues_table_data = []
+                    for c in customer_balances:
+                        status_badge = "🔴 Pending Due" if c["current_due"] > 0 else "🟢 Cleared"
+                        dues_table_data.append({
+                            t("ledger.customer_name", lang=selected_lang, default="Customer Name"): c["customer_name"],
+                            t("ledger.customer_phone", lang=selected_lang, default="Customer Phone"): c["customer_phone"] or "—",
+                            t("ledger.total_amount", lang=selected_lang, default="Total Billed (₹)"): f"₹{c['total_billed']:.2f}",
+                            t("editor.col_paid", lang=selected_lang, default="Paid (₹)"): f"₹{c['total_paid']:.2f}",
+                            t("editor.col_due", lang=selected_lang, default="Due (₹)"): f"₹{c['current_due']:.2f}",
+                            t("common.status", lang=selected_lang, default="Status"): status_badge,
+                            t("common.date", lang=selected_lang, default="Last Date"): c["last_transaction_date"] or "—",
+                        })
+                    st.dataframe(dues_table_data, use_container_width=True)
+                else:
+                    st.info("No customer credit accounts found. All transactions were cash or walk-in sales.")
+
+                st.markdown("---")
+
+                # 5. Excel Export Section
+                st.subheader(f"📥 {t('common.export_excel', lang=selected_lang, default='Export to Excel')}")
+                st.markdown("Download all confirmed ledger transactions, customer dues summaries, and product performance as a multi-sheet spreadsheet.")
+
+                excel_data = export_ledger_to_excel(
+                    confirmed_records,
+                    shop_name=active_shop_name,
+                    lang=selected_lang,
+                )
+                clean_shop_slug = "".join(c if c.isalnum() else "_" for c in active_shop_name).strip("_") or "shop"
+                excel_filename = f"{clean_shop_slug}_ledger_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+                st.download_button(
+                    label="📥 " + t("common.export_excel", lang=selected_lang, default="Export to Excel (.xlsx)"),
+                    data=excel_data,
+                    file_name=excel_filename,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="btn_download_excel_dashboard",
+                    type="primary",
+                )
 
     with tab_upload:
         st.subheader("📸 " + t("nav.upload", lang=selected_lang, default="Ledger Photograph Upload & AI Extraction"))

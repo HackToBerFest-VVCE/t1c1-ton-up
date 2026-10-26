@@ -70,7 +70,12 @@
     "active_customers": "सक्रिय ग्राहक",
     "fast_moving_items": "तेजी से बिकने वाले उत्पाद",
     "outstanding_dues": "ग्राहकों की बकाया सूची",
-    "recent_entries": "हालिया लेनदेन"
+    "recent_entries": "हालिया लेनदेन",
+    "transaction_count": "कुल लेनदेन",
+    "payment_distribution": "भुगतान वितरण (नकद बनाम उधार)",
+    "top_products_chart": "राजस्व के अनुसार शीर्ष 5 उत्पाद",
+    "customer_dues_title": "ग्राहकों का बकाया उधार (उधार खाता)",
+    "no_data_hint": "इस दुकान के लिए अभी तक कोई पुष्टि किया गया लेनदेन नहीं मिला। एनालिटिक्स देखने के लिए बहीखाता अपलोड करें और पुष्टि करें।"
   },
   "insights": {
     "title": "व्यापारिक अंतर्दृष्टि (AI Insights)",

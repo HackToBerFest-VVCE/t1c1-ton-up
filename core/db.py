@@ -372,6 +372,47 @@ def check_batch_exists(
         return False, 0
 
 
+def fetch_confirmed_ledger_entries(
+    shop_id: str,
+    client: Optional[Any] = None,
+    access_token: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Retrieves all confirmed ledger transactions for a specified shop from Supabase PostgreSQL.
+
+    Security & Isolation:
+    - If access_token is provided, queries through the user-authenticated Supabase client so
+      Row Level Security (RLS) automatically enforces multi-tenant shopkeeper isolation.
+    - Filters strictly on shop_id and status='confirmed'.
+    - Returns records ordered by entry_date DESC.
+    - Gracefully returns empty list if unconfigured, offline, or on query exception.
+    """
+    clean_sid = str(shop_id or "").strip()
+    if not clean_sid:
+        return []
+
+    resolved_client = _resolve_client(client=client, access_token=access_token)
+    if resolved_client is None:
+        return []
+
+    try:
+        response = (
+            resolved_client.table("ledger_entries")
+            .select(
+                "id, shop_id, customer_name, customer_phone, item_name, "
+                "standardized_item_name, quantity, unit, unit_price, total_amount, "
+                "paid_amount, due_amount, batch_id, row_index, transaction_type, "
+                "status, confidence_score, raw_ocr_text, entry_date, created_at"
+            )
+            .eq("shop_id", clean_sid)
+            .eq("status", "confirmed")
+            .order("entry_date", desc=True)
+            .execute()
+        )
+        return response.data or []
+    except Exception:
+        return []
+
+
 def save_confirmed_entries(
     entries: List[Any],
     shop_id: str,

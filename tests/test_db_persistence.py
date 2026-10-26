@@ -11,6 +11,7 @@ from core.db import (
     check_batch_exists,
     create_shop,
     fetch_available_shops,
+    fetch_confirmed_ledger_entries,
     save_confirmed_entries,
     verify_shop_exists,
 )
@@ -239,6 +240,38 @@ class TestDatabasePersistence(unittest.TestCase):
         self.assertFalse(success)
         self.assertIn("MIGRATION_REQUIRED", msg)
         self.assertIn("001_add_paid_due_and_idempotency.sql", msg)
+
+    def test_fetch_confirmed_ledger_entries_success(self) -> None:
+        """Verifies querying confirmed ledger entries scopes by shop and status."""
+        mock_resp = MagicMock()
+        mock_resp.data = [
+            {"id": "entry-1", "item_name": "Sugar", "total_amount": 50.0, "status": "confirmed"},
+            {"id": "entry-2", "item_name": "Rice", "total_amount": 120.0, "status": "confirmed"},
+        ]
+        mock_table = MagicMock()
+        mock_table.select.return_value.eq.return_value.eq.return_value.order.return_value.execute.return_value = (
+            mock_resp
+        )
+        self.mock_client.table.return_value = mock_table
+
+        results = fetch_confirmed_ledger_entries(shop_id="shop-123", client=self.mock_client)
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0]["item_name"], "Sugar")
+        self.mock_client.table.assert_called_with("ledger_entries")
+
+    def test_fetch_confirmed_ledger_entries_empty_shop_id(self) -> None:
+        """Empty or blank shop ID returns empty list immediately."""
+        self.assertEqual(fetch_confirmed_ledger_entries(shop_id="", client=self.mock_client), [])
+        self.assertEqual(fetch_confirmed_ledger_entries(shop_id=None, client=self.mock_client), [])
+
+    def test_fetch_confirmed_ledger_entries_exception_handled(self) -> None:
+        """Database or network errors are handled gracefully without raising."""
+        mock_table = MagicMock()
+        mock_table.select.side_effect = Exception("Supabase connection timeout")
+        self.mock_client.table.return_value = mock_table
+
+        results = fetch_confirmed_ledger_entries(shop_id="shop-123", client=self.mock_client)
+        self.assertEqual(results, [])
 
 
 if __name__ == "__main__":

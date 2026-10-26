@@ -200,6 +200,32 @@ class TestLanguagePackLoading(unittest.TestCase):
                     f"Key '{key}' was not translated in '{lang}' and returned raw key",
                 )
 
+    def test_dashboard_keys_present_in_all_languages(self) -> None:
+        """Verifies that all dashboard keys exist in all 5 languages."""
+        required_dashboard_keys = [
+            "dashboard.total_sales",
+            "dashboard.total_credit",
+            "dashboard.total_collected",
+            "dashboard.active_customers",
+            "dashboard.fast_moving_items",
+            "dashboard.outstanding_dues",
+            "dashboard.recent_entries",
+            "dashboard.transaction_count",
+            "dashboard.payment_distribution",
+            "dashboard.top_products_chart",
+            "dashboard.customer_dues_title",
+            "dashboard.no_data_hint",
+        ]
+        for lang in ["en", "kn", "hi", "te", "ta"]:
+            for key in required_dashboard_keys:
+                translated = self.mgr.translate(key, lang=lang)
+                self.assertIsNotNone(translated, f"Key '{key}' was None in '{lang}'")
+                self.assertNotEqual(
+                    translated,
+                    key,
+                    f"Key '{key}' was not translated in '{lang}' and returned raw key",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

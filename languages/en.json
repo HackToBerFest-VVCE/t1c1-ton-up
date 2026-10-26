@@ -70,7 +70,12 @@
     "active_customers": "Active Customers",
     "fast_moving_items": "Fast-Moving Products",
     "outstanding_dues": "Customer Outstanding Balances",
-    "recent_entries": "Recent Ledger Transactions"
+    "recent_entries": "Recent Ledger Transactions",
+    "transaction_count": "Total Transactions",
+    "payment_distribution": "Payment Distribution (Cash vs. Credit)",
+    "top_products_chart": "Top 5 Products by Revenue",
+    "customer_dues_title": "Customer Outstanding Dues (Udhaar Khata)",
+    "no_data_hint": "No confirmed transactions found for this shop yet. Upload and confirm ledger sheets to view analytics."
   },
   "insights": {
     "title": "Business Intelligence & Insights",
