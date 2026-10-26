@@ -77,6 +77,19 @@
     "credit_alert": "उधार चेतावनी: {count} ग्राहकों के खाते में 15 दिनों से अधिक समय से बकाया है।",
     "top_product": "इस सप्ताह का सबसे अधिक बिकने वाला सामान: {item} ({qty} {unit})।"
   },
+  "upload": {
+    "drag_drop": "हस्तलिखित बहीखाता फ़ोटो अपलोड करें (.jpg, .jpeg, .png, .webp)",
+    "original_preview": "मूल फ़ोटो",
+    "preprocessed_preview": "OpenCV परिष्कृत छवि (कंट्रास्ट और सीधा किया हुआ)",
+    "extract_btn": "जेम्मा 4 से विवरण निकालें",
+    "demo_mode_toggle": "डेमो मोड (नमूना बहीखाता)",
+    "select_demo_fixture": "नमूना बहीखाता चुनें",
+    "review_required": "समीक्षा आवश्यक",
+    "verified_valid": "वैध",
+    "math_discrepancy": "गणना में विसंगति",
+    "ambiguous_date": "अस्पष्ट तिथि",
+    "candidate_readings": "वैकल्पिक पठन"
+  },
   "review_banner": {
     "notice": "यह भाषा पैक सत्यापित है।"
   }

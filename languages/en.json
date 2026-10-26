@@ -77,6 +77,19 @@
     "credit_alert": "Credit exposure alert: {count} customer accounts have pending dues older than 15 days.",
     "top_product": "Top selling item this week is {item} with {qty} {unit} sold."
   },
+  "upload": {
+    "drag_drop": "Upload handwritten ledger photo (.jpg, .jpeg, .png, .webp)",
+    "original_preview": "Original Photograph",
+    "preprocessed_preview": "OpenCV Preprocessed (Contrast & Deskewed)",
+    "extract_btn": "Extract Transactions with Gemma 4",
+    "demo_mode_toggle": "Demo Mode (Offline Fixtures)",
+    "select_demo_fixture": "Select Demo Fixture",
+    "review_required": "Review Required",
+    "verified_valid": "Valid",
+    "math_discrepancy": "Math Discrepancy",
+    "ambiguous_date": "Ambiguous Date",
+    "candidate_readings": "Alternative Candidates"
+  },
   "review_banner": {
     "notice": "This language pack is verified."
   }

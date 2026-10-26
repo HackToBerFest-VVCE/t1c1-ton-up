@@ -1,0 +1,87 @@
+[
+  {
+    "row_id": 1,
+    "date": "2026-10-24",
+    "customer": "राकेश जी",
+    "customer_phone": "9811223344",
+    "item": "अरहर दाल",
+    "quantity": 2.0,
+    "unit": "kg",
+    "unit_price": 160.0,
+    "amount": 320.0,
+    "paid": 320.0,
+    "due": 0.0,
+    "raw_text": "राकेश जी - अरहर दाल 2kg - 320 नकद",
+    "field_confidence": {
+      "customer": 0.97,
+      "item": 0.96,
+      "quantity": 0.98,
+      "amount": 0.99
+    },
+    "candidate_readings": {}
+  },
+  {
+    "row_id": 2,
+    "date": "2026-10-24",
+    "customer": "शर्मा जी",
+    "customer_phone": null,
+    "item": "Surf Excel",
+    "quantity": 1.0,
+    "unit": "kg",
+    "unit_price": 130.0,
+    "amount": 130.0,
+    "paid": 0.0,
+    "due": 130.0,
+    "raw_text": "शर्मा जी Surf Excel 1kg 130 उधार",
+    "field_confidence": {
+      "customer": 0.93,
+      "item": 0.95,
+      "amount": 0.96
+    },
+    "candidate_readings": {}
+  },
+  {
+    "row_id": 3,
+    "date": "2026-10-24",
+    "customer": "अमित",
+    "customer_phone": "9876543210",
+    "item": "सरसों तेल",
+    "quantity": 2.0,
+    "unit": "litre",
+    "unit_price": 150.0,
+    "amount": 300.0,
+    "paid": 200.0,
+    "due": 50.0,
+    "raw_text": "अमित 2L सरसों तेल 300 दिया 200 बाकी 50",
+    "field_confidence": {
+      "customer": 0.91,
+      "item": 0.94,
+      "quantity": 0.95,
+      "amount": 0.92,
+      "paid": 0.89,
+      "due": 0.85
+    },
+    "candidate_readings": {}
+  },
+  {
+    "row_id": 4,
+    "date": "05/06",
+    "customer": "विकास",
+    "customer_phone": null,
+    "item": "Maggi Noodles",
+    "quantity": 4.0,
+    "unit": "pkt",
+    "unit_price": 14.0,
+    "amount": 56.0,
+    "paid": 56.0,
+    "due": 0.0,
+    "raw_text": "05/06 विकास Maggi 4 pkt 56 जमा",
+    "field_confidence": {
+      "date": 0.82,
+      "customer": 0.90,
+      "item": 0.97,
+      "amount": 0.98
+    },
+    "candidate_readings": {}
+  }
+]

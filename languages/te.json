@@ -77,6 +77,19 @@
     "credit_alert": "బాకీ హెచ్చరిక: {count} మంది ఖాతాదారులకు 15 రోజుల కంటే పాత బాకీలు ఉన్నాయి.",
     "top_product": "ఈ వారం ఎక్కువగా అమ్ముడైన వస్తువు: {item} ({qty} {unit})."
   },
+  "upload": {
+    "drag_drop": "చేతివ్రాత లెడ్జర్ ఫోటోను అప్‌లోడ్ చేయండి (.jpg, .jpeg, .png, .webp)",
+    "original_preview": "అసలు ఫోటో",
+    "preprocessed_preview": "OpenCV మెరుగుపరిచిన చిత్రం",
+    "extract_btn": "జెమ్మా 4 తో వివరాలను సంగ్రహించండి",
+    "demo_mode_toggle": "డెమో మోడ్ (నమూనా లెడ్జర్)",
+    "select_demo_fixture": "నమూనా లెడ్జర్‌ను ఎంచుకోండి",
+    "review_required": "సమీక్ష అవసరం",
+    "verified_valid": "చెల్లుబాటు అయ్యేది",
+    "math_discrepancy": "గణిత అసమానత",
+    "ambiguous_date": "అస్పష్టమైన తేదీ",
+    "candidate_readings": "ప్రత్యామ్నాయ పఠనాలు"
+  },
   "review_banner": {
     "notice": "గమనిక: ఈ తెలుగు భాషా ప్యాక్ డ్రాఫ్ట్ స్థితిలో ఉంది మరియు స్థానిక సమీక్ష అవసరం."
   }

@@ -86,7 +86,7 @@ try:
 
         # Gemma 4 Configuration
         gemma_api_key: str = Field(default="", description="Google GenAI / Gemma 4 API Key")
-        gemma_model_name: str = Field(default="gemma-4", description="Target Gemma model ID")
+        gemma_model_name: str = Field(default="gemma-4-26b-a4b-it", description="Target Gemma model ID")
 
         # Supabase PostgreSQL Configuration
         supabase_url: str = Field(default="", description="Supabase project URL")
@@ -149,7 +149,7 @@ except ImportError:
         debug: bool = False
         default_language: str = "kn"
         gemma_api_key: str = ""
-        gemma_model_name: str = "gemma-4"
+        gemma_model_name: str = "gemma-4-26b-a4b-it"
         supabase_url: str = ""
         supabase_key: str = ""
         catalog_match_threshold: float = 75.0
@@ -221,12 +221,27 @@ def load_config(root_dir: Optional[Path] = None) -> AppConfig:
     except ValueError:
         max_upload = 15
 
+    # Check GEMMA_MODEL first, falling back to GEMMA_MODEL_NAME or default 'gemma-4-26b-a4b-it'
+    gemma_model = _get("GEMMA_MODEL", "") or _get("GEMMA_MODEL_NAME", "gemma-4-26b-a4b-it")
+    gemma_key = _get("GEMMA_API_KEY", "")
+
+    # Optional fallback to Streamlit secrets if running inside Streamlit
+    if not gemma_key:
+        try:
+            import streamlit as st
+            if hasattr(st, "secrets"):
+                gemma_key = str(st.secrets.get("GEMMA_API_KEY", "") or st.secrets.get("gemma_api_key", ""))
+                if not gemma_model or gemma_model == "gemma-4-26b-a4b-it":
+                    gemma_model = str(st.secrets.get("GEMMA_MODEL", "") or st.secrets.get("gemma_model", gemma_model))
+        except Exception:
+            pass
+
     return AppConfig(
         app_env=app_env,
         debug=debug,
         default_language=default_lang,
-        gemma_api_key=_get("GEMMA_API_KEY", ""),
-        gemma_model_name=_get("GEMMA_MODEL_NAME", "gemma-4"),
+        gemma_api_key=gemma_key,
+        gemma_model_name=gemma_model,
         supabase_url=_get("SUPABASE_URL", ""),
         supabase_key=_get("SUPABASE_KEY", ""),
         catalog_match_threshold=catalog_threshold,

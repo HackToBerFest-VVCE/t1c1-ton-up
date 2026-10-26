@@ -49,41 +49,49 @@ AI-extracted records may contain errors. Users must review and correct uncertain
 ## Project Status
 
 - **Milestone 1 (Complete)**: Core project structure, safe configuration loading, multilingual packs (en, kn, hi, te [draft], ta [draft]), Supabase PostgreSQL schema, canonical 50-item kirana catalog, and test suite.
-- **Milestone 2 (Upcoming)**: Ledger image upload, OpenCV preprocessing, and Gemma 4 OCR extraction.
+- **Milestone 2 (Complete)**: Ledger image upload, OpenCV CLAHE preprocessing & deskewing, Gemma 4 extraction prompt, defensive JSON parsing & repair, decimal-safe integrity validation (`paid + due == amount`), candidate readings & confidence review flags, Demo Mode fixtures, and test suite.
 - **Milestone 3 (Upcoming)**: Interactive human review/correction UI, Supabase sync, and Excel export.
 
 ## Project Structure
 
 ```text
 Ton Up/
-├── app.py                  # Main Streamlit web application
-├── core/                   # Core business logic and foundation
-│   ├── config.py           # Safe configuration and secret masking
-│   ├── i18n.py             # Language pack manager and fallback translation
-│   ├── models.py           # Pydantic v2 domain models
-│   ├── catalog.py          # Kirana product catalog loader & matcher
-│   └── db.py               # Supabase connection manager
+├── app.py                      # Main Streamlit web application (Vision + Extraction UI)
+├── core/                       # Core business logic and foundation
+│   ├── config.py               # Safe configuration and secret masking
+│   ├── i18n.py                 # Language pack manager and fallback translation
+│   ├── models.py               # Pydantic v2 domain models
+│   ├── catalog.py              # Kirana product catalog loader & matcher
+│   ├── db.py                   # Supabase connection manager
+│   ├── image_preprocessor.py   # OpenCV CLAHE contrast, deskewing & cropping
+│   ├── validator.py            # Decimal-safe arithmetic & date validation
+│   └── extractor.py            # Gemma 4 prompt, defensive JSON repair & Demo Mode
 ├── data/
-│   └── items.csv           # 50 common kirana products (en, kn, hi)
-├── languages/              # Multilingual JSON translation packs
-│   ├── en.json             # English (Verified)
-│   ├── kn.json             # Kannada (Verified)
-│   ├── hi.json             # Hindi (Verified)
-│   ├── te.json             # Telugu (Draft - Needs Native Review)
-│   └── ta.json             # Tamil (Draft - Needs Native Review)
+│   ├── items.csv               # 50 common kirana products (en, kn, hi)
+│   ├── sample_images/          # Sample notebook ledger photograph for testing
+│   └── sample_extractions/     # Verified offline extraction fixtures (kn, hi)
+├── languages/                  # Multilingual JSON translation packs
+│   ├── en.json                 # English (Verified)
+│   ├── kn.json                 # Kannada (Verified)
+│   ├── hi.json                 # Hindi (Verified)
+│   ├── te.json                 # Telugu (Draft - Needs Native Review)
+│   └── ta.json                 # Tamil (Draft - Needs Native Review)
 ├── sql/
-│   └── schema.sql          # Supabase PostgreSQL schema & indexes
-├── tests/                  # Test suite (config safety, i18n, schema, catalog)
+│   └── schema.sql              # Supabase PostgreSQL schema & indexes
+├── tests/                      # Unit test suite (45 tests)
 │   ├── test_config.py
 │   ├── test_i18n.py
 │   ├── test_schema.py
-│   └── test_catalog.py
-├── .env.example            # Template for environment configuration
-├── .gitignore              # Ignores .env, caches, logs, and uploads
-└── requirements.txt        # Python 3.11 dependency specifications
+│   ├── test_catalog.py
+│   ├── test_image_preprocessor.py
+│   ├── test_validator.py
+│   └── test_extractor.py
+├── .env.example                # Template for environment configuration
+├── .gitignore                  # Ignores .env, caches, logs, and uploads
+└── requirements.txt            # Python 3.11 dependency specifications
 ```
 
-## Getting Started (Milestone 1)
+## Getting Started (Milestones 1 & 2)
 
 ### 1. Setup Environment
 ```bash

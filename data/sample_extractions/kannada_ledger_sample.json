@@ -1,0 +1,113 @@
+[
+  {
+    "row_id": 1,
+    "date": "2026-10-24",
+    "customer": "ರಮೇಶ್",
+    "customer_phone": "9845012345",
+    "item": "ತೊಗರಿ ಬೇಳೆ",
+    "quantity": 2.0,
+    "unit": "kg",
+    "unit_price": 160.0,
+    "amount": 320.0,
+    "paid": 0.0,
+    "due": 320.0,
+    "raw_text": "ರಮೇಶ್ - ತೊಗರಿ ಬೇಳೆ 2kg - 320 (ಉದ್ದರಿ)",
+    "field_confidence": {
+      "customer": 0.96,
+      "item": 0.95,
+      "quantity": 0.98,
+      "amount": 0.97
+    },
+    "candidate_readings": {}
+  },
+  {
+    "row_id": 2,
+    "date": "2026-10-24",
+    "customer": "ಸುರೇಶ್",
+    "customer_phone": null,
+    "item": "ಸಕ್ಕರೆ",
+    "quantity": 5.0,
+    "unit": "kg",
+    "unit_price": 50.0,
+    "amount": 250.0,
+    "paid": 100.0,
+    "due": 100.0,
+    "raw_text": "ಸುರೇಶ್ 5 kg ಸಕ್ಕರೆ 250 ಕೊಟ್ಟಿದ್ದು 100 ಬಾಕಿ 100",
+    "field_confidence": {
+      "customer": 0.92,
+      "item": 0.94,
+      "quantity": 0.95,
+      "amount": 0.91,
+      "paid": 0.88,
+      "due": 0.85
+    },
+    "candidate_readings": {}
+  },
+  {
+    "row_id": 3,
+    "date": "24/10",
+    "customer": "ಮಂಜುನಾಥ್",
+    "customer_phone": "9741234567",
+    "item": "ಸೂರ್ಯಕಾಂತಿ ಎಣ್ಣೆ",
+    "quantity": 1.0,
+    "unit": "litre",
+    "unit_price": 140.0,
+    "amount": 140.0,
+    "paid": 140.0,
+    "due": 0.0,
+    "raw_text": "24/10 ಮಂಜುನಾಥ್ 1L ಸೂರ್ಯಕಾಂತಿ ಎಣ್ಣೆ 140 ಜಮಾ",
+    "field_confidence": {
+      "date": 0.88,
+      "customer": 0.94,
+      "item": 0.96,
+      "amount": 0.98
+    },
+    "candidate_readings": {}
+  },
+  {
+    "row_id": 4,
+    "date": "2026-10-24",
+    "customer": "ಪ್ರಕಾಶ್",
+    "customer_phone": null,
+    "item": "ಹೆಸರು ಬೇಳೆ",
+    "quantity": 1.0,
+    "unit": "kg",
+    "unit_price": 130.0,
+    "amount": 130.0,
+    "paid": 0.0,
+    "due": 130.0,
+    "raw_text": "ಪ್ರಕಾಶ್ - ಬೇಳೆ 1kg - 130 ಬಾಕಿ",
+    "field_confidence": {
+      "customer": 0.91,
+      "item": 0.52,
+      "quantity": 0.95,
+      "amount": 0.95
+    },
+    "candidate_readings": {
+      "item": [
+        "ಹೆಸರು ಬೇಳೆ",
+        "ಕಡಲೆ ಬೇಳೆ"
+      ]
+    }
+  },
+  {
+    "row_id": 5,
+    "date": "2026-10-24",
+    "customer": "ಆನಂದ್",
+    "customer_phone": "9900112233",
+    "item": "ಟೀ ಪುಡಿ",
+    "quantity": 1.0,
+    "unit": "pkt",
+    "unit_price": 130.0,
+    "amount": 130.0,
+    "paid": 130.0,
+    "due": 0.0,
+    "raw_text": "ಆನಂದ್ ಟೀ ಪುಡಿ 130 ರೊಕ್ಕ",
+    "field_confidence": {
+      "customer": 0.98,
+      "item": 0.97,
+      "amount": 0.99
+    },
+    "candidate_readings": {}
+  }
+]

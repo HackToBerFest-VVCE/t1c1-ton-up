@@ -77,6 +77,19 @@
     "credit_alert": "ಉದ್ದರಿ ಎಚ್ಚರಿಕೆ: {count} ಗ್ರಾಹಕರ ಖಾತೆಗಳಲ್ಲಿ 15 ದಿನಗಳಿಗಿಂತ ಹಳೆಯ ಬಾಕಿ ಉಳಿದಿದೆ.",
     "top_product": "ಈ ವಾರ ಅತ್ಯಂತ ಹೆಚ್ಚು ಮಾರಾಟವಾದ ವಸ್ತು: {item} ({qty} {unit})."
   },
+  "upload": {
+    "drag_drop": "ಕೈಬರಹದ ಖಾತಾ ಫೋಟೋ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ (.jpg, .jpeg, .png, .webp)",
+    "original_preview": "ಮೂಲ ಫೋಟೋ",
+    "preprocessed_preview": "OpenCV ಸುಧಾರಿತ ಚಿತ್ರ (ಕಾಂಟ್ರಾಸ್ಟ್ ಮತ್ತು ನೇರಗೊಳಿಸಿದ)",
+    "extract_btn": "ಜೆಮ್ಮಾ 4 ಬಳಸಿ ವಿವರಗಳನ್ನು ಹೊರತೆಗೆಯಿರಿ",
+    "demo_mode_toggle": "ಡೆಮೊ ಮೋಡ್ (ಮಾದರಿ ಖಾತಾ)",
+    "select_demo_fixture": "ಮಾದರಿ ಖಾತಾವನ್ನು ಆರಿಸಿ",
+    "review_required": "ಪರಿಶೀಲನೆ ಅಗತ್ಯವಿದೆ",
+    "verified_valid": "ಸರಿಯಾಗಿದೆ",
+    "math_discrepancy": "ಲೆಕ್ಕದಲ್ಲಿ ವ್ಯತ್ಯಾಸ",
+    "ambiguous_date": "ಅಸ್ಪಷ್ಟ ದಿನಾಂಕ",
+    "candidate_readings": "ಪರ್ಯಾಯ ಓದುಗಳು"
+  },
   "review_banner": {
     "notice": "ಕನ್ನಡ ಭಾಷಾ ಪ್ಯಾಕ್ ಪರಿಶೀಲಿಸಲ್ಪಟ್ಟಿದೆ."
   }

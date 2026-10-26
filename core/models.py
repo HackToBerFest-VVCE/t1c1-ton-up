@@ -115,6 +115,42 @@ try:
         default_unit: str
         standard_price_inr: float
 
+    class ExtractedLedgerRow(BaseModel):
+        """Structured single line extracted from a handwritten ledger sheet."""
+        model_config = ConfigDict(from_attributes=True)
+
+        row_id: int = 1
+        date: Optional[str] = None
+        customer: Optional[str] = None
+        customer_phone: Optional[str] = None
+        item: str = Field(default="", description="Original handwritten item name")
+        quantity: Optional[float] = None
+        unit: Optional[str] = None
+        unit_price: Optional[float] = None
+        amount: Optional[float] = None
+        paid: Optional[float] = None
+        due: Optional[float] = None
+        raw_text: str = Field(default="", description="Verbatim handwritten line")
+        field_confidence: Dict[str, float] = Field(default_factory=dict)
+        candidate_readings: Dict[str, Any] = Field(default_factory=dict)
+        validation_flags: list[str] = Field(default_factory=list)
+        needs_review: bool = False
+        review_reasons: list[str] = Field(default_factory=list)
+        standardized_item: Optional[str] = None
+
+    class ExtractionResult(BaseModel):
+        """Batch extraction output from Gemma 4 or sample demo fixture."""
+        model_config = ConfigDict(from_attributes=True)
+
+        success: bool = True
+        rows: list[ExtractedLedgerRow] = Field(default_factory=list)
+        error_message: Optional[str] = None
+        model_used: str = ""
+        is_demo: bool = False
+        raw_response_text: Optional[str] = None
+        total_rows: int = 0
+        rows_needing_review: int = 0
+
     HAS_PYDANTIC = True
 
 except ImportError:
@@ -186,5 +222,37 @@ except ImportError:
         category: str
         default_unit: str
         standard_price_inr: float
+
+    @dataclass
+    class ExtractedLedgerRow:  # type: ignore[no-redef]
+        row_id: int = 1
+        date: Optional[str] = None
+        customer: Optional[str] = None
+        customer_phone: Optional[str] = None
+        item: str = ""
+        quantity: Optional[float] = None
+        unit: Optional[str] = None
+        unit_price: Optional[float] = None
+        amount: Optional[float] = None
+        paid: Optional[float] = None
+        due: Optional[float] = None
+        raw_text: str = ""
+        field_confidence: Dict[str, float] = field(default_factory=dict)
+        candidate_readings: Dict[str, Any] = field(default_factory=dict)
+        validation_flags: list[str] = field(default_factory=list)
+        needs_review: bool = False
+        review_reasons: list[str] = field(default_factory=list)
+        standardized_item: Optional[str] = None
+
+    @dataclass
+    class ExtractionResult:  # type: ignore[no-redef]
+        success: bool = True
+        rows: list[ExtractedLedgerRow] = field(default_factory=list)
+        error_message: Optional[str] = None
+        model_used: str = ""
+        is_demo: bool = False
+        raw_response_text: Optional[str] = None
+        total_rows: int = 0
+        rows_needing_review: int = 0
 
     HAS_PYDANTIC = False
