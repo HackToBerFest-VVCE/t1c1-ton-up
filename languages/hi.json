@@ -1,0 +1,83 @@
+{
+  "_metadata": {
+    "code": "hi",
+    "name": "Hindi",
+    "native_name": "हिन्दी",
+    "needs_native_review": false,
+    "version": "1.0.0"
+  },
+  "app": {
+    "title": "किराना बहीखाता डिजिटाइज़र",
+    "subtitle": "हस्तलिखित किराना बहीखाते को डिजिटल रिकॉर्ड में बदलें",
+    "tagline": "जेम्मा 4 और सुप्राबेस पोस्टग्रेसक्यूएल द्वारा संचालित",
+    "milestone_badge": "माइलस्टोन 1: आधार तैयार"
+  },
+  "nav": {
+    "dashboard": "डैशबोर्ड",
+    "upload": "बहीखाता फ़ोटो अपलोड",
+    "verify": "सत्यापन और संपादन",
+    "customers": "उधार और बकाया ग्राहक",
+    "analytics": "बिक्री और रुझान",
+    "catalog": "उत्पाद सूची (कैटलॉग)",
+    "settings": "सेटिंग्स"
+  },
+  "common": {
+    "save": "सहेजें (Save)",
+    "cancel": "रद्द करें (Cancel)",
+    "confirm": "पुष्टि करें (Confirm)",
+    "delete": "हटाएं (Delete)",
+    "edit": "संपादित करें (Edit)",
+    "add": "जोड़ें (Add)",
+    "export_excel": "एक्सेल में निर्यात करें",
+    "loading": "प्रक्रिया जारी है...",
+    "success": "सफल",
+    "error": "त्रुटि",
+    "warning": "चेतावनी",
+    "language": "भाषा",
+    "status": "स्थिति",
+    "pending": "लंबित",
+    "confirmed": "पुष्टित",
+    "rejected": "अस्वीकृत",
+    "credit": "उधार (खाता)",
+    "debit": "जमा (भुगतान)",
+    "cash": "नकद",
+    "date": "दिनांक",
+    "search": "खोजें...",
+    "filter": "फ़िल्टर"
+  },
+  "ledger": {
+    "shop_name": "दुकान का नाम",
+    "customer_name": "ग्राहक का नाम",
+    "customer_phone": "फ़ोन नंबर",
+    "item_name": "सामान का नाम",
+    "standard_item": "मानक उत्पाद",
+    "quantity": "मात्रा",
+    "unit": "इकाई (kg/L/pkt)",
+    "unit_price": "दर (₹)",
+    "total_amount": "कुल राशि (₹)",
+    "transaction_type": "लेनदेन का प्रकार",
+    "date": "दिनांक",
+    "confidence": "AI सटीकता",
+    "actions": "कार्रवाई",
+    "no_records": "कोई बहीखाता रिकॉर्ड नहीं मिला।",
+    "confirm_all": "सभी रिकॉर्ड की पुष्टि करें",
+    "add_entry": "नई पंक्ति जोड़ें"
+  },
+  "dashboard": {
+    "total_sales": "कुल बिक्री (₹)",
+    "total_credit": "कुल बकाया उधार (₹)",
+    "total_collected": "कुल प्राप्त राशि (₹)",
+    "active_customers": "सक्रिय ग्राहक",
+    "fast_moving_items": "तेजी से बिकने वाले उत्पाद",
+    "outstanding_dues": "ग्राहकों की बकाया सूची",
+    "recent_entries": "हालिया लेनदेन"
+  },
+  "insights": {
+    "title": "व्यापारिक अंतर्दृष्टि (AI Insights)",
+    "credit_alert": "उधार चेतावनी: {count} ग्राहकों के खाते में 15 दिनों से अधिक समय से बकाया है।",
+    "top_product": "इस सप्ताह का सबसे अधिक बिकने वाला सामान: {item} ({qty} {unit})।"
+  },
+  "review_banner": {
+    "notice": "यह भाषा पैक सत्यापित है।"
+  }
+}

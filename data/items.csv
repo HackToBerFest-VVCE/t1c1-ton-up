@@ -1,0 +1,51 @@
+item_id,name_en,name_kn,name_hi,category,default_unit,standard_price_inr
+1,Toor Dal,ತೊಗರಿ ಬೇಳೆ,अरहर दाल,Pulses & Grains,kg,160.00
+2,Moong Dal,ಹೆಸರು ಬೇಳೆ,मूंग दाल,Pulses & Grains,kg,130.00
+3,Chana Dal,ಕಡಲೆ ಬೇಳೆ,चना दाल,Pulses & Grains,kg,95.00
+4,Urad Dal,ಉದ್ದಿನ ಬೇಳೆ,उड़द दाल,Pulses & Grains,kg,145.00
+5,Masoor Dal,ಕೆಂಪು ಬೇಳೆ,मसूर दाल,Pulses & Grains,kg,100.00
+6,Sona Masoori Rice,ಸೋನಾ ಮಸೂರಿ ಅಕ್ಕಿ,सोना मसूरी चावल,Grains,kg,62.00
+7,Basmati Rice,ಬಾಸ್ಮತಿ ಅಕ್ಕಿ,बासमती चावल,Grains,kg,120.00
+8,Wheat Flour (Atta),ಗೋಧಿ ಹಿಟ್ಟು,गेहूँ का आटा,Flours,kg,48.00
+9,Maida,ಮೈದಾ ಹಿಟ್ಟು,मैदा,Flours,kg,45.00
+10,Rava (Sooji),ಬಾಂಬೆ ರವೆ,सूजी (रवा),Flours,kg,44.00
+11,Sugar,ಸಕ್ಕರೆ,चीनी,Sweeteners,kg,44.00
+12,Jaggery,ಬೆಲ್ಲ,गुड़,Sweeteners,kg,65.00
+13,Sunflower Oil,ಸೂರ್ಯಕಾಂತಿ ಎಣ್ಣೆ,सूरजमुखी तेल,Edible Oils,litre,140.00
+14,Groundnut Oil,ಕಡಲೆಕಾಯಿ ಎಣ್ಣೆ,मूंगफली तेल,Edible Oils,litre,175.00
+15,Mustard Oil,ಸಾಸಿವೆ ಎಣ್ಣೆ,सरसों का तेल,Edible Oils,litre,150.00
+16,Ghee,ತುಪ್ಪ,देसी घी,Dairy,g,650.00
+17,Table Salt,ಪುಡಿ ಉಪ್ಪು,नमक,Spices & Salt,kg,25.00
+18,Crystal Salt,ಕಲ್ಲುಪ್ಪು,सेंधा / साबुत नमक,Spices & Salt,kg,15.00
+19,Turmeric Powder,ಅರಿಶಿನ ಪುಡಿ,हल्दी पाउडर,Spices & Masalas,g,40.00
+20,Chilli Powder,ಖಾರದ ಪುಡಿ,लाल मिर्च पाउडर,Spices & Masalas,g,55.00
+21,Coriander Powder,ಕೊತ್ತಂಬರಿ ಪುಡಿ,धनिया पाउडर,Spices & Masalas,g,45.00
+22,Cumin Seeds (Jeera),ಜೀರಿಗೆ,जीरा,Spices & Masalas,g,70.00
+23,Mustard Seeds,ಸಾಸಿವೆ,सरसों / राई,Spices & Masalas,g,30.00
+24,Black Pepper,ಕಾಳುಮೆಣಸು,काली मिर्च,Spices & Masalas,g,90.00
+25,Cloves (Lavanga),ಲವಂಗ,लौंग,Spices & Masalas,g,110.00
+26,Cardamom (Elaichi),ಏಲಕ್ಕಿ,इलायची,Spices & Masalas,g,280.00
+27,Tea Powder,ಟೀ ಪುಡಿ,चाय पत्ती,Beverages,g,130.00
+28,Filter Coffee Powder,ಕಾಫಿ ಪುಡಿ,कॉफ़ी पाउडर,Beverages,g,150.00
+29,Fresh Milk (Nandini),ಹಾಲು,ताज़ा दूध,Dairy,packet,25.00
+30,Curd (Dahi),ಮೊಸರು,दही,Dairy,packet,28.00
+31,Butter,ಬೆಣ್ಣೆ,मक्खन,Dairy,g,60.00
+32,Paneer,ಪನೀರ್,पनीर,Dairy,g,95.00
+33,Washing Powder (Surf),ಡಿಟರ್ಜೆಂಟ್ ಪುಡಿ,वॉशिंग पाउडर,Cleaning,kg,130.00
+34,Dishwash Bar (Vim),ಪಾತ್ರೆ ಸೋಪು,डिशवॉश बार,Cleaning,unit,20.00
+35,Bathing Soap (Lifebuoy),ಸ್ನಾನದ ಸೋಪು,नहाने का साबुन,Personal Care,unit,38.00
+36,Shampoo Sachet,ಶ್ಯಾಂಪೂ ಸ್ಯಾಚೆಟ್,शैम्पू सैशे,Personal Care,unit,2.00
+37,Toothpaste (Colgate),ಟೂತ್‌ಪೇಸ್ಟ್,टूथपेस्ट,Personal Care,unit,65.00
+38,Marie Gold Biscuits,ಮೇರಿ ಬಿಸ್ಕತ್ತು,मेरी गोल्ड बिस्कुट,Snacks,packet,30.00
+39,Parle-G Biscuits,ಪಾರ್ಲೆ-ಜಿ ಬಿಸ್ಕತ್ತು,पारले-जी बिस्कुट,Snacks,packet,10.00
+40,Instant Noodles (Maggi),ಮ್ಯಾಗಿ ನೂಡಲ್ಸ್,मैगी नूडल्स,Snacks,packet,14.00
+41,Bread Loaf,ಬ್ರೆಡ್,ब्रेड,Bakery,packet,45.00
+42,Farm Fresh Eggs,ಮೊಟ್ಟೆ,अंडे,Poultry,unit,7.00
+43,Onion,ಈರುಳ್ಳಿ,प्याज,Produce,kg,40.00
+44,Potato,ಆಲೂಗಡ್ಡೆ,आलू,Produce,kg,35.00
+45,Tomato,ಟೊಮೆಟೊ,टमाटर,Produce,kg,30.00
+46,Garlic,ಬೆಳ್ಳುಳ್ಳಿ,लहसुन,Produce,g,80.00
+47,Ginger,ಶುಂಠಿ,अदरक,Produce,g,40.00
+48,Coconut (Kobbari),ತೆಂಗಿನಕಾಯಿ,नारियल,Produce,unit,35.00
+49,Tamarind (Hunasehannu),ಹುಣಸೆಹಣ್ಣು,इमली,Produce,kg,140.00
+50,Flattened Rice (Poha),ಅವಲಕ್ಕಿ,पोहा,Grains,kg,52.00

@@ -1,0 +1,83 @@
+{
+  "_metadata": {
+    "code": "en",
+    "name": "English",
+    "native_name": "English",
+    "needs_native_review": false,
+    "version": "1.0.0"
+  },
+  "app": {
+    "title": "Kirana Ledger Digitizer",
+    "subtitle": "Convert handwritten kirana shop ledgers into structured digital records",
+    "tagline": "Built with Gemma 4 & Supabase PostgreSQL",
+    "milestone_badge": "Milestone 1: Foundation Ready"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "upload": "Upload Ledger",
+    "verify": "Verify & Edit",
+    "customers": "Customer Dues (Udhaar)",
+    "analytics": "Sales & Trends",
+    "catalog": "Product Catalog",
+    "settings": "Settings"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "export_excel": "Export to Excel",
+    "loading": "Loading...",
+    "success": "Success",
+    "error": "Error",
+    "warning": "Warning",
+    "language": "Language",
+    "status": "Status",
+    "pending": "Pending",
+    "confirmed": "Confirmed",
+    "rejected": "Rejected",
+    "credit": "Credit (Udhaar)",
+    "debit": "Paid (Jama)",
+    "cash": "Cash",
+    "date": "Date",
+    "search": "Search...",
+    "filter": "Filter"
+  },
+  "ledger": {
+    "shop_name": "Shop Name",
+    "customer_name": "Customer Name",
+    "customer_phone": "Customer Phone",
+    "item_name": "Item Name",
+    "standard_item": "Standard Catalog Item",
+    "quantity": "Quantity",
+    "unit": "Unit",
+    "unit_price": "Rate (₹)",
+    "total_amount": "Total (₹)",
+    "transaction_type": "Transaction Type",
+    "date": "Date",
+    "confidence": "AI Confidence",
+    "actions": "Actions",
+    "no_records": "No ledger records found.",
+    "confirm_all": "Confirm All Records",
+    "add_entry": "Add New Row"
+  },
+  "dashboard": {
+    "total_sales": "Total Sales (₹)",
+    "total_credit": "Total Udhaar / Credit (₹)",
+    "total_collected": "Total Collected (₹)",
+    "active_customers": "Active Customers",
+    "fast_moving_items": "Fast-Moving Products",
+    "outstanding_dues": "Customer Outstanding Balances",
+    "recent_entries": "Recent Ledger Transactions"
+  },
+  "insights": {
+    "title": "Business Intelligence & Insights",
+    "credit_alert": "Credit exposure alert: {count} customer accounts have pending dues older than 15 days.",
+    "top_product": "Top selling item this week is {item} with {qty} {unit} sold."
+  },
+  "review_banner": {
+    "notice": "This language pack is verified."
+  }
+}

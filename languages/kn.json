@@ -1,0 +1,83 @@
+{
+  "_metadata": {
+    "code": "kn",
+    "name": "Kannada",
+    "native_name": "ಕನ್ನಡ",
+    "needs_native_review": false,
+    "version": "1.0.0"
+  },
+  "app": {
+    "title": "ಕಿರಾಣಿ ಲೆಡ್ಜರ್ ಡಿಜಿಟೈಜರ್",
+    "subtitle": "ಕೈಬರಹದ ಕಿರಾಣಿ ಖಾತಾ ಪುಸ್ತಕವನ್ನು ಡಿಜಿಟಲ್ ಲೆಕ್ಕಪತ್ರವನ್ನಾಗಿ ಪರಿವರ್ತಿಸಿ",
+    "tagline": "ಜೆಮ್ಮಾ 4 ಮತ್ತು ಸೂಪರ್‌ಬೇಸ್ ಪೋಸ್ಟ್‌ಗ್ರೆಸ್‌ಎಸ್‌ಕ್ಯುಎಲ್ ತಂತ್ರಜ್ಞಾನ",
+    "milestone_badge": "ಮೈಲಿಗಲ್ಲು 1: ಸಿದ್ಧತೆ ಪೂರ್ಣಗೊಂಡಿದೆ"
+  },
+  "nav": {
+    "dashboard": "ಮುಖಪುಟ / ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",
+    "upload": "ಖಾತಾ ಫೋಟೋ ಅಪ್‌ಲೋಡ್",
+    "verify": "ಪರಿಶೀಲನೆ ಮತ್ತು ತಿದ್ದುಪಡಿ",
+    "customers": "ಗ್ರಾಹಕರ ಸಾಲದ ಬಾಕಿ (ಉದ್ದರಿ)",
+    "analytics": "ಮಾರಾಟ ಮತ್ತು ವಹಿವಾಟು",
+    "catalog": "ವಸ್ತುಗಳ ಪಟ್ಟಿ (ಕ್ಯಾಟಲಾಗ್)",
+    "settings": "ಸೆಟ್ಟಿಂಗ್‌ಗಳು"
+  },
+  "common": {
+    "save": "ಉಳಿಸಿ (Save)",
+    "cancel": "ರದ್ದುಮಾಡಿ (Cancel)",
+    "confirm": "ದೃಢೀಕರಿಸಿ (Confirm)",
+    "delete": "ಅಳಿಸಿ (Delete)",
+    "edit": "ತಿದ್ದಿ (Edit)",
+    "add": "ಸೇರಿಸಿ (Add)",
+    "export_excel": "ಎಕ್ಸೆಲ್‌ಗೆ ರಫ್ತು ಮಾಡಿ",
+    "loading": "ಪ್ರಕ್ರಿಯೆ ನಡೆಯುತ್ತಿದೆ...",
+    "success": "ಯಶಸ್ವಿ",
+    "error": "ದೋಷ",
+    "warning": "ಎಚ್ಚರಿಕೆ",
+    "language": "ಭಾಷೆ",
+    "status": "ಸ್ಥಿತಿ",
+    "pending": "ಬಾಕಿ ಉಳಿದಿದೆ",
+    "confirmed": "ದೃಢೀಕರಿಸಲಾಗಿದೆ",
+    "rejected": "ತಿರಸ್ಕರಿಸಲಾಗಿದೆ",
+    "credit": "ಉದ್ದರಿ (ಖಾತೆ)",
+    "debit": "ಜಮಾ (ಪಾವತಿ)",
+    "cash": "ನಗದು",
+    "date": "ದಿನಾಂಕ",
+    "search": "ಹುಡುಕಿ...",
+    "filter": "ಫಿಲ್ಟರ್"
+  },
+  "ledger": {
+    "shop_name": "ಅಂಗಡಿಯ ಹೆಸರು",
+    "customer_name": "ಗ್ರಾಹಕರ ಹೆಸರು",
+    "customer_phone": "ದೂರವಾಣಿ ಸಂಖ್ಯೆ",
+    "item_name": "ವಸ್ತುವಿನ ಹೆಸರು",
+    "standard_item": "ಪ್ರಮಾಣಿತ ವಸ್ತು",
+    "quantity": "ಪ್ರಮಾಣ",
+    "unit": "ಅಳತೆ (kg/L/pkt)",
+    "unit_price": "ದರ (₹)",
+    "total_amount": "ಒಟ್ಟು ಮೊತ್ತ (₹)",
+    "transaction_type": "ವ್ಯವಹಾರದ ಪ್ರಕಾರ",
+    "date": "ದಿನಾಂಕ",
+    "confidence": "AI ನಿಖರತೆ",
+    "actions": "ಕ್ರಮಗಳು",
+    "no_records": "ಯಾವುದೇ ಖಾತಾ ವಿವರಗಳು ಕಂಡುಬಂದಿಲ್ಲ.",
+    "confirm_all": "ಎಲ್ಲ ವಿವರಗಳನ್ನು ದೃಢೀಕರಿಸಿ",
+    "add_entry": "ಹೊಸ ಸಾಲು ಸೇರಿಸಿ"
+  },
+  "dashboard": {
+    "total_sales": "ಒಟ್ಟು ಮಾರಾಟ (₹)",
+    "total_credit": "ಒಟ್ಟು ಉದ್ದರಿ ಬಾಕಿ (₹)",
+    "total_collected": "ಒಟ್ಟು ವಸೂಲಾದ ಮೊತ್ತ (₹)",
+    "active_customers": "ಸಕ್ರಿಯ ಗ್ರಾಹಕರು",
+    "fast_moving_items": "ಹೆಚ್ಚು ಮಾರಾಟವಾಗುವ ವಸ್ತುಗಳು",
+    "outstanding_dues": "ಗ್ರಾಹಕರ ಬಾಕಿ ಪಟ್ಟಿ",
+    "recent_entries": "ಇತ್ತೀಚಿನ ವಹಿವಾಟುಗಳು"
+  },
+  "insights": {
+    "title": "ವ್ಯಾಪಾರದ ಒಳನೋಟಗಳು (AI Insights)",
+    "credit_alert": "ಉದ್ದರಿ ಎಚ್ಚರಿಕೆ: {count} ಗ್ರಾಹಕರ ಖಾತೆಗಳಲ್ಲಿ 15 ದಿನಗಳಿಗಿಂತ ಹಳೆಯ ಬಾಕಿ ಉಳಿದಿದೆ.",
+    "top_product": "ಈ ವಾರ ಅತ್ಯಂತ ಹೆಚ್ಚು ಮಾರಾಟವಾದ ವಸ್ತು: {item} ({qty} {unit})."
+  },
+  "review_banner": {
+    "notice": "ಕನ್ನಡ ಭಾಷಾ ಪ್ಯಾಕ್ ಪರಿಶೀಲಿಸಲ್ಪಟ್ಟಿದೆ."
+  }
+}
