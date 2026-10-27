@@ -91,6 +91,34 @@ class TestImagePreprocessor(unittest.TestCase):
 
         proc_bytes = result.to_processed_bytes(".png")
         self.assertGreater(len(proc_bytes), 0)
+        self.assertGreaterEqual(result.preprocessing_time_ms, 0.0)
+
+    def test_resize_if_needed(self) -> None:
+        large_pil = Image.new("RGB", (2400, 1800), color=(200, 200, 200))
+        large_arr = np.array(large_pil)
+        resized_arr, was_resized = self.preprocessor.resize_if_needed(large_arr, max_dim=1600)
+        self.assertTrue(was_resized)
+        h, w = resized_arr.shape[:2]
+        self.assertEqual(w, 1600)
+        self.assertEqual(h, 1200)
+
+        # Small image should not be resized
+        small_pil = Image.new("RGB", (800, 600), color=(200, 200, 200))
+        small_arr = np.array(small_pil)
+        small_resized, was_small_resized = self.preprocessor.resize_if_needed(small_arr, max_dim=1600)
+        self.assertFalse(was_small_resized)
+        self.assertEqual(small_resized.shape, small_arr.shape)
+
+    def test_to_processed_bytes_jpeg_reduces_payload(self) -> None:
+        result = self.preprocessor.preprocess(self.sample_bytes)
+        png_bytes = result.to_processed_bytes(".png")
+        jpg_bytes = result.to_processed_bytes(".jpg", quality=88)
+        self.assertGreater(len(png_bytes), 0)
+        self.assertGreater(len(jpg_bytes), 0)
+        # JPEG should start with 0xFF 0xD8 magic bytes
+        self.assertTrue(jpg_bytes.startswith(b"\xff\xd8"))
+        # PNG should start with 0x89 PNG magic bytes
+        self.assertTrue(png_bytes.startswith(b"\x89PNG"))
 
 
 if __name__ == "__main__":

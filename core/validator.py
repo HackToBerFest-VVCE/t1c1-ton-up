@@ -25,6 +25,10 @@ FLAG_CANDIDATE_READINGS = "CANDIDATE_READINGS"
 FLAG_MISSING_ITEM = "MISSING_ITEM"
 FLAG_MISSING_AMOUNT = "MISSING_AMOUNT"
 
+# Interactive Payment Status Constants
+STATUS_FULLY_PAID = "✅ Fully Paid"
+STATUS_HAS_DUE = "❌ Has Due"
+
 
 def to_decimal(val: Any) -> Optional[Decimal]:
     """Safely converts numerical or string input to Decimal, avoiding float precision traps."""
@@ -213,6 +217,12 @@ class LedgerValidator:
         row.review_reasons = reasons
         row.needs_review = len(unique_flags) > 0
 
+        if getattr(row, "payment_status", None) is None:
+            if row.due is not None and row.due > 0:
+                row.payment_status = STATUS_HAS_DUE
+            else:
+                row.payment_status = STATUS_FULLY_PAID
+
         # Capture snapshot of validated fields for diffing during subsequent user edits
         if row.original_data is None:
             row.original_data = {
@@ -373,6 +383,13 @@ class LedgerValidator:
         row.validation_flags = unique_flags
         row.review_reasons = list(dict.fromkeys(reasons))
         row.needs_review = len(unique_flags) > 0
+
+        if getattr(row, "payment_status", None) is None:
+            if row.due is not None and row.due > 0:
+                row.payment_status = STATUS_HAS_DUE
+            else:
+                row.payment_status = STATUS_FULLY_PAID
+
         return row
 
     def revalidate_batch(self, rows: List[ExtractedLedgerRow]) -> List[ExtractedLedgerRow]:
@@ -394,3 +411,257 @@ def get_validator() -> LedgerValidator:
 def revalidate_row(row: ExtractedLedgerRow) -> ExtractedLedgerRow:
     """Convenience function for field-aware row revalidation."""
     return get_validator().revalidate_row(row)
+
+
+def calculate_payment_split(
+    total_amount: Optional[Any],
+    payment_status: Optional[str] = None,
+    due_amount: Optional[Any] = None,
+) -> Tuple[str, float, float]:
+    """Calculates valid (payment_status, paid, due) adhering to Kirana financial rules.
+
+    Guarantees:
+    - Total amount is non-negative (defaulting to 0.00).
+    - 0.0 <= Due <= Total.
+    - Paid = Total - Due (Paid is never negative).
+    - If payment_status is '✅ Fully Paid' (or indicates fully paid):
+        Due = 0.0, Paid = Total, status = '✅ Fully Paid'.
+    - If payment_status is '❌ Has Due' (or indicates due):
+        - If due_amount is provided: Due = clamp(due_amount, 0.0, Total).
+        - If due_amount is None: Due = Total.
+        - If Due == 0.0: treated as fully paid -> status = '✅ Fully Paid', Paid = Total, Due = 0.0.
+        - Else: status = '❌ Has Due', Paid = Total - Due.
+    - If payment_status is not specified (None or blank):
+        - If due_amount is provided and > 0:
+            Due = clamp(due_amount, 0.0, Total)
+            if Due == Decimal("0.00"):
+                status = STATUS_FULLY_PAID
+                paid_dec = total_dec
+            else:
+                status = STATUS_HAS_DUE
+                paid_dec = (total_dec - due_dec).quantize(Decimal("0.01"))
+        - Else:
+            status = STATUS_FULLY_PAID
+            due_dec = Decimal("0.00")
+            paid_dec = total_dec
+
+    Returns:
+        (payment_status, paid_amount, due_amount)
+    """
+    total_dec = to_decimal(total_amount)
+    if total_dec is None or total_dec < Decimal("0.00"):
+        total_dec = Decimal("0.00")
+    else:
+        total_dec = total_dec.quantize(Decimal("0.01"))
+
+    norm_status = str(payment_status or "").strip()
+    is_fully_paid = ("✅" in norm_status) or ("fully paid" in norm_status.lower())
+    is_has_due = ("❌" in norm_status) or ("has due" in norm_status.lower()) or (norm_status.lower() == "due")
+
+    if is_fully_paid:
+        due_dec = Decimal("0.00")
+        paid_dec = total_dec
+        final_status = STATUS_FULLY_PAID
+    elif is_has_due:
+        raw_due_dec = to_decimal(due_amount)
+        if raw_due_dec is None:
+            # Default to full bill on credit if user selected Has Due without specifying amount
+            due_dec = total_dec
+        else:
+            # Enforce 0.0 <= due <= total
+            due_dec = max(Decimal("0.00"), min(raw_due_dec, total_dec)).quantize(Decimal("0.01"))
+
+        if due_dec == Decimal("0.00"):
+            # Rule: If Due = 0, treat as fully paid
+            paid_dec = total_dec
+            final_status = STATUS_FULLY_PAID
+        else:
+            paid_dec = (total_dec - due_dec).quantize(Decimal("0.01"))
+            final_status = STATUS_HAS_DUE
+    else:
+        # Status not explicitly specified; infer from due_amount
+        raw_due_dec = to_decimal(due_amount)
+        if raw_due_dec is not None and raw_due_dec > Decimal("0.00"):
+            due_dec = max(Decimal("0.00"), min(raw_due_dec, total_dec)).quantize(Decimal("0.01"))
+            if due_dec == Decimal("0.00"):
+                paid_dec = total_dec
+                final_status = STATUS_FULLY_PAID
+            else:
+                paid_dec = (total_dec - due_dec).quantize(Decimal("0.01"))
+                final_status = STATUS_HAS_DUE
+        else:
+            due_dec = Decimal("0.00")
+            paid_dec = total_dec
+            final_status = STATUS_FULLY_PAID
+
+    return final_status, float(paid_dec), float(due_dec)
+
+
+def update_row_payment(
+    row: ExtractedLedgerRow,
+    is_fully_paid: Optional[bool] = None,
+    payment_status: Optional[str] = None,
+    due_amount: Optional[Any] = None,
+) -> ExtractedLedgerRow:
+    """Updates the payment status and amounts for a row and revalidates financial integrity."""
+    status_input = payment_status
+    if is_fully_paid is True:
+        status_input = STATUS_FULLY_PAID
+    elif is_fully_paid is False:
+        status_input = STATUS_HAS_DUE
+
+    final_status, paid, due = calculate_payment_split(
+        total_amount=row.amount,
+        payment_status=status_input,
+        due_amount=due_amount if due_amount is not None else row.due,
+    )
+    row.payment_status = final_status
+    row.paid = paid
+    row.due = due
+    return revalidate_row(row)
+
+
+def sync_editor_rows_with_changes(
+    rows: List[ExtractedLedgerRow],
+    editor_diff: Optional[Dict[str, Any]] = None,
+) -> List[ExtractedLedgerRow]:
+    """Synchronizes a list of ExtractedLedgerRow objects with pending st.data_editor changes.
+
+    Ensures every edited row immediately and independently recalculates Paid = Total - Due,
+    preserving user-entered Due amounts (0 <= Due <= Total) and handling status transitions cleanly.
+    """
+    if not rows:
+        return []
+
+    updated_rows = [r for r in rows]
+
+    if not editor_diff or not isinstance(editor_diff, dict):
+        for r in updated_rows:
+            amt = float(r.amount or 0.0)
+            st_lbl, pd_val, due_val = calculate_payment_split(
+                total_amount=amt,
+                payment_status=getattr(r, "payment_status", None),
+                due_amount=r.due,
+            )
+            r.payment_status = st_lbl
+            r.paid = pd_val
+            r.due = due_val
+        return updated_rows
+
+    # 1. Handle deleted rows
+    deleted_indices = editor_diff.get("deleted_rows")
+    if deleted_indices and isinstance(deleted_indices, list):
+        del_set = set(int(i) for i in deleted_indices if str(i).isdigit() or isinstance(i, int))
+        updated_rows = [r for idx, r in enumerate(updated_rows) if idx not in del_set]
+
+    # 2. Handle edited rows
+    edited_rows_map = editor_diff.get("edited_rows")
+    if edited_rows_map and isinstance(edited_rows_map, dict):
+        for row_idx_str, changes in edited_rows_map.items():
+            try:
+                idx = int(row_idx_str)
+            except (ValueError, TypeError):
+                continue
+            if 0 <= idx < len(updated_rows):
+                r = updated_rows[idx]
+                if not isinstance(changes, dict):
+                    continue
+
+                if "item" in changes:
+                    r.item = str(changes["item"] or "").strip()
+                if "date" in changes:
+                    d_val = str(changes["date"] or "").strip()
+                    r.date = None if not d_val or d_val.lower() in ("none", "null", "nan") else d_val
+                if "customer" in changes:
+                    c_val = str(changes["customer"] or "").strip()
+                    r.customer = None if not c_val or c_val.lower() in ("none", "null", "nan") else c_val
+                if "customer_phone" in changes:
+                    cp_val = str(changes["customer_phone"] or "").strip()
+                    r.customer_phone = None if not cp_val or cp_val.lower() in ("none", "null", "nan") else cp_val
+                if "quantity" in changes:
+                    try:
+                        r.quantity = float(changes["quantity"]) if changes["quantity"] is not None else None
+                    except (ValueError, TypeError):
+                        pass
+                if "unit" in changes:
+                    r.unit = str(changes["unit"] or "").strip() or "unit"
+                if "unit_price" in changes:
+                    try:
+                        r.unit_price = float(changes["unit_price"]) if changes["unit_price"] is not None else None
+                    except (ValueError, TypeError):
+                        pass
+                if "amount" in changes:
+                    try:
+                        r.amount = float(changes["amount"]) if changes["amount"] is not None else 0.0
+                    except (ValueError, TypeError):
+                        pass
+                if "status" in changes:
+                    r.needs_review = (str(changes["status"]).strip() != "confirmed")
+
+                amt_val = float(r.amount or 0.0)
+                prev_status = getattr(r, "payment_status", None) or STATUS_FULLY_PAID
+                prev_due = r.due
+
+                has_payment_edit = "payment" in changes
+                has_due_edit = "due" in changes
+
+                user_payment = str(changes["payment"]).strip() if has_payment_edit else prev_status
+                raw_user_due = changes["due"] if has_due_edit else prev_due
+
+                if "fully paid" in user_payment.lower() or "✅" in user_payment:
+                    status_label, calc_paid, calc_due = calculate_payment_split(amt_val, STATUS_FULLY_PAID, 0.0)
+                elif "has due" in user_payment.lower() or "❌" in user_payment:
+                    if has_due_edit:
+                        try:
+                            due_clean = float(raw_user_due) if raw_user_due is not None else 0.0
+                        except (ValueError, TypeError):
+                            due_clean = 0.0
+                        due_clean = max(0.0, min(due_clean, amt_val))
+                        status_label, calc_paid, calc_due = calculate_payment_split(amt_val, STATUS_HAS_DUE, due_clean)
+                    elif has_payment_edit:
+                        due_input = prev_due if (prev_due is not None and prev_due > 0) else amt_val
+                        status_label, calc_paid, calc_due = calculate_payment_split(amt_val, STATUS_HAS_DUE, due_input)
+                    else:
+                        try:
+                            due_clean = float(raw_user_due) if raw_user_due is not None else amt_val
+                        except (ValueError, TypeError):
+                            due_clean = amt_val
+                        due_clean = max(0.0, min(due_clean, amt_val))
+                        status_label, calc_paid, calc_due = calculate_payment_split(amt_val, STATUS_HAS_DUE, due_clean)
+                else:
+                    status_label, calc_paid, calc_due = calculate_payment_split(amt_val, user_payment, raw_user_due)
+
+                r.payment_status = status_label
+                r.paid = calc_paid
+                r.due = calc_due
+                revalidate_row(r)
+
+    # 3. Handle added rows
+    added_rows_list = editor_diff.get("added_rows")
+    if added_rows_list and isinstance(added_rows_list, list):
+        max_id = max((r.row_id for r in updated_rows), default=0)
+        for i, new_dict in enumerate(added_rows_list):
+            if not isinstance(new_dict, dict):
+                continue
+            amt_val = float(new_dict.get("amount") or 0.0)
+            pay_status = str(new_dict.get("payment") or STATUS_FULLY_PAID)
+            due_val = new_dict.get("due")
+            st_lbl, calc_pd, calc_d = calculate_payment_split(amt_val, pay_status, due_val)
+            new_row = ExtractedLedgerRow(
+                row_id=max_id + i + 1,
+                date=new_dict.get("date"),
+                customer=new_dict.get("customer"),
+                customer_phone=new_dict.get("customer_phone"),
+                item=str(new_dict.get("item") or "").strip(),
+                quantity=float(new_dict.get("quantity")) if new_dict.get("quantity") is not None else 1.0,
+                unit=new_dict.get("unit") or "unit",
+                unit_price=float(new_dict.get("unit_price")) if new_dict.get("unit_price") is not None else 0.0,
+                amount=amt_val,
+                payment_status=st_lbl,
+                paid=calc_pd,
+                due=calc_d,
+            )
+            revalidate_row(new_row)
+            updated_rows.append(new_row)
+
+    return updated_rows

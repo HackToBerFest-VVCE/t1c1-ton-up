@@ -75,7 +75,11 @@
     "payment_distribution": "Payment Distribution (Cash vs. Credit)",
     "top_products_chart": "Top 5 Products by Revenue",
     "customer_dues_title": "Customer Outstanding Dues (Udhaar Khata)",
-    "no_data_hint": "No confirmed transactions found for this shop yet. Upload and confirm ledger sheets to view analytics."
+    "no_data_hint": "No confirmed transactions found for this shop yet. Upload and confirm ledger sheets to view analytics.",
+    "refresh_btn": "Refresh Dashboard",
+    "refresh_success": "Dashboard refreshed with latest transactions!",
+    "last_refreshed": "Last updated: {time}",
+    "saved_view_hint": "Confirmed records saved to Supabase! Switch to the 'Dashboard & Insights' tab to explore your freshly updated metrics, trends, and customer balances."
   },
   "insights": {
     "title": "Business Intelligence & Insights",
@@ -138,7 +142,18 @@
     "col_paid": "Paid (₹)",
     "col_due": "Due (₹)",
     "col_flags": "Review Flags",
-    "col_status": "Status"
+    "col_status": "Status",
+    "col_payment": "Payment",
+    "status_fully_paid": "✅ Fully Paid",
+    "status_has_due": "❌ Has Due",
+    "quick_payment_title": "Quick Payment & Dues Adjustment",
+    "quick_payment_select_row": "Select Transaction Row",
+    "quick_payment_mode": "Payment Type",
+    "due_amount_label": "Due Amount (₹)",
+    "help_payment": "Select '✅ Fully Paid' or '❌ Has Due'",
+    "help_due": "Enter due amount. Paid is auto-calculated as Total - Due.",
+    "help_paid": "Auto-calculated: Total - Due",
+    "quick_apply_btn": "Apply Payment Changes"
   },
   "auth": {
     "section_title": "Account & Login",
@@ -156,6 +171,7 @@
     "no_owned_shops": "No shops registered for this account. Create one below.",
     "demo_unauthenticated_hint": "Guest Mode: Running locally without active session. Log in to sync with Supabase.",
     "admin_badge": "Administrator",
+    "user_badge": "User",
     "shopkeeper_badge": "Shopkeeper",
     "admin_panel_title": "Admin: Shop Provisioning & Management",
     "admin_notice": "Shopkeeper accounts are provisioned via Supabase Dashboard. In-app account creation requires privileged service-role credentials and is restricted for security.",
@@ -175,6 +191,47 @@
     "select_shopkeeper_label": "Select Shopkeeper (by Email)",
     "shopkeeper_email_label": "Shopkeeper Email Address",
     "reassign_by_email_success": "Shop reassigned successfully to '{email}'!"
+  },
+  "admin": {
+    "portal_title": "Admin Portal — Shop & Shopkeeper Management",
+    "total_shops": "Total Registered Shops",
+    "total_shopkeepers": "Total Shopkeeper Accounts",
+    "assigned_shops": "Assigned Shops",
+    "unassigned_shops": "Unassigned Shops",
+    "edit_shop_title": "Edit Shop Details",
+    "edit_shop_btn": "Save Changes",
+    "edit_shop_success": "Shop '{name}' updated successfully!",
+    "delete_shop_title": "Delete Shop",
+    "delete_shop_btn": "Delete Shop",
+    "delete_shop_confirm": "Are you sure you want to delete shop '{name}'? This action cannot be undone.",
+    "delete_shop_success": "Shop '{name}' was deleted successfully.",
+    "delete_blocked_history": "Cannot delete shop '{name}' because it contains {count} transaction records. Deletion is blocked to preserve financial history.",
+    "user_management": "User Management",
+    "shop_management": "Shop Management",
+    "create_user_title": "Create User Account",
+    "create_user_btn": "Create User Account",
+    "create_user_success": "User account '{email}' created successfully!",
+    "total_users": "Total Users",
+    "users_table_title": "Registered User Accounts",
+    "users_empty": "No registered user accounts found or service-role key is unconfigured."
+  },
+  "assistant": {
+    "title": "Gemma 4 AI Business Assistant",
+    "subtitle": "Ask business questions grounded in your confirmed ledger records",
+    "grounding_badge": "100% Grounded in Confirmed Ledger Records",
+    "input_placeholder": "Ask about your sales, pending dues, fast-moving items, or trends...",
+    "send_btn": "Send",
+    "clear_btn": "Clear Chat",
+    "suggested_title": "Suggested Questions:",
+    "suggested_q1": "What are my total sales and collected cash?",
+    "suggested_q2": "Which are my top 5 selling items?",
+    "suggested_q3": "Who owes the most pending dues?",
+    "suggested_q4": "How do recent sales compare over time?",
+    "suggested_q5": "Give me an executive business summary.",
+    "empty_data_notice": "No confirmed transactions are available for this shop yet. Please upload and confirm ledger entries to query the AI assistant.",
+    "error_api": "Unable to contact the AI assistant. Please check your network connection or Gemma API key.",
+    "retry_btn": "Retry Question",
+    "thinking": "Consulting Gemma 4 with verified ledger facts..."
   },
   "review_banner": {
     "notice": "This language pack is verified."

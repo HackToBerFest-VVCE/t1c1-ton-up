@@ -7,10 +7,15 @@ fixtures when offline or unconfigured.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
 import re
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
+
+logger = logging.getLogger("kirana.extractor")
 
 from core.catalog import get_catalog_manager
 from core.config import get_config
@@ -170,6 +175,7 @@ class GemmaLedgerExtractor:
             fixtures_dir = Path(__file__).resolve().parent.parent / "data" / "sample_extractions"
         self.fixtures_dir = fixtures_dir
         self.config = get_config()
+        self._cache: Dict[str, ExtractionResult] = {}
 
     def get_available_fixtures(self) -> List[str]:
         """Returns filenames of available cached extraction fixtures."""
@@ -177,17 +183,24 @@ class GemmaLedgerExtractor:
             return []
         return [f.name for f in sorted(self.fixtures_dir.glob("*.json"))]
 
-    def load_fixture(self, fixture_name: str) -> ExtractionResult:
-        """Loads and validates a cached demo extraction fixture."""
+    def load_fixture(
+        self,
+        fixture_name: str,
+        preprocessing_time_ms: float = 0.0,
+        payload_size_bytes: int = 0,
+    ) -> ExtractionResult:
+        """Loads and validates a cached demo extraction fixture with timing metrics."""
         fixture_path = self.fixtures_dir / fixture_name
         if not fixture_path.exists():
             return ExtractionResult(
                 success=False,
                 error_message=f"Demo fixture '{fixture_name}' not found at {fixture_path}",
                 is_demo=True,
+                payload_size_bytes=payload_size_bytes,
             )
 
         try:
+            t_parse_start = time.perf_counter()
             with open(fixture_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             if not isinstance(data, list):
@@ -198,10 +211,13 @@ class GemmaLedgerExtractor:
                         success=False,
                         error_message="Fixture must contain a JSON array of ledger rows.",
                         is_demo=True,
+                        payload_size_bytes=payload_size_bytes,
                     )
 
             rows = raw_dicts_to_extracted_rows(data)
             needs_review_count = sum(1 for r in rows if r.needs_review)
+            parse_ms = round((time.perf_counter() - t_parse_start) * 1000.0, 2)
+            total_ms = round(preprocessing_time_ms + parse_ms, 2)
 
             return ExtractionResult(
                 success=True,
@@ -210,12 +226,24 @@ class GemmaLedgerExtractor:
                 is_demo=True,
                 total_rows=len(rows),
                 rows_needing_review=needs_review_count,
+                preprocessing_time_ms=preprocessing_time_ms,
+                api_latency_ms=0.0,
+                parsing_validation_time_ms=parse_ms,
+                total_request_time_ms=total_ms,
+                payload_size_bytes=payload_size_bytes,
+                latency_breakdown={
+                    "preprocessing_ms": preprocessing_time_ms,
+                    "api_latency_ms": 0.0,
+                    "parsing_validation_ms": parse_ms,
+                    "total_request_ms": total_ms,
+                },
             )
         except Exception as e:
             return ExtractionResult(
                 success=False,
                 error_message=f"Error reading demo fixture: {e}",
                 is_demo=True,
+                payload_size_bytes=payload_size_bytes,
             )
 
     def extract_from_image(
@@ -223,14 +251,50 @@ class GemmaLedgerExtractor:
         image_bytes: bytes,
         use_demo: bool = False,
         demo_fixture_name: str = "kannada_ledger_sample.json",
+        preprocessing_time_ms: float = 0.0,
+        force_refresh: bool = False,
     ) -> ExtractionResult:
-        """Extracts ledger records from preprocessed image bytes.
+        """Extracts ledger records from preprocessed image bytes with latency instrumentation.
 
         If use_demo is True, loads from cached demo fixtures.
         Otherwise calls Google GenAI / Gemma 4 model with strict defensive error handling.
         """
+        payload_size_bytes = len(image_bytes) if image_bytes else 0
+
+        # Check in-memory extraction cache to prevent redundant API calls
+        cache_key = hashlib.sha256(
+            (image_bytes or b"") + str(use_demo).encode() + demo_fixture_name.encode()
+        ).hexdigest()
+        if not force_refresh and cache_key in self._cache:
+            cached_res = self._cache[cache_key]
+            logger.info("Extraction cache hit (key=%s), returning cached rows", cache_key[:8])
+            breakdown = dict(cached_res.latency_breakdown or {})
+            breakdown["from_cache"] = True
+            return ExtractionResult(
+                success=cached_res.success,
+                rows=cached_res.rows,
+                error_message=cached_res.error_message,
+                model_used=cached_res.model_used,
+                raw_response_text=cached_res.raw_response_text,
+                is_demo=cached_res.is_demo,
+                total_rows=cached_res.total_rows,
+                rows_needing_review=cached_res.rows_needing_review,
+                preprocessing_time_ms=cached_res.preprocessing_time_ms,
+                api_latency_ms=0.0,
+                parsing_validation_time_ms=cached_res.parsing_validation_time_ms,
+                total_request_time_ms=cached_res.total_request_time_ms,
+                payload_size_bytes=cached_res.payload_size_bytes,
+                latency_breakdown=breakdown,
+            )
+
         if use_demo:
-            return self.load_fixture(demo_fixture_name)
+            res = self.load_fixture(
+                demo_fixture_name,
+                preprocessing_time_ms=preprocessing_time_ms,
+                payload_size_bytes=payload_size_bytes,
+            )
+            self._cache[cache_key] = res
+            return res
 
         # Check API key configuration
         if not self.config.is_gemma_configured:
@@ -242,6 +306,8 @@ class GemmaLedgerExtractor:
                     "or enable Demo Mode to test with pre-validated sample ledger sheets."
                 ),
                 is_demo=False,
+                preprocessing_time_ms=preprocessing_time_ms,
+                payload_size_bytes=payload_size_bytes,
             )
 
         # Check SDK availability
@@ -257,18 +323,26 @@ class GemmaLedgerExtractor:
                     "or enable Demo Mode to test the extraction workflow."
                 ),
                 is_demo=False,
+                preprocessing_time_ms=preprocessing_time_ms,
+                payload_size_bytes=payload_size_bytes,
             )
 
         # Call live Gemma model
+        t_api_start = time.perf_counter()
+        model_name = self.config.gemma_model_name or "gemma-4-26b-a4b-it"
+        if model_name == "gemma-4":
+            model_name = "gemma-4-26b-a4b-it"
+
         try:
             client = genai.Client(api_key=self.config.gemma_api_key)
-            model_name = self.config.gemma_model_name or "gemma-4-26b-a4b-it"
-            if model_name == "gemma-4":
-                model_name = "gemma-4-26b-a4b-it"
+
+            # Auto-detect image MIME type based on byte header
+            is_jpeg = image_bytes.startswith(b"\xff\xd8")
+            mime_type = "image/jpeg" if is_jpeg else "image/png"
 
             image_part = types.Part.from_bytes(
                 data=image_bytes,
-                mime_type="image/png",
+                mime_type=mime_type,
             )
 
             prompt = (
@@ -276,22 +350,37 @@ class GemmaLedgerExtractor:
                 "Examine this handwritten kirana ledger sheet and extract all transaction rows into a JSON array:"
             )
 
+            # Enforce structured JSON decoding at model level to eliminate preamble tokens
+            gen_config = types.GenerateContentConfig(
+                temperature=0.1,
+                response_mime_type="application/json",
+            )
+
             response = client.models.generate_content(
                 model=model_name,
                 contents=[image_part, prompt],
+                config=gen_config,
             )
+            api_latency_ms = round((time.perf_counter() - t_api_start) * 1000.0, 2)
 
+            t_parse_start = time.perf_counter()
             raw_text = response.text or ""
             cleaned = clean_json_response(raw_text)
             parsed_data, parse_err = repair_and_parse_json(cleaned)
 
             if parse_err or parsed_data is None:
+                parse_ms = round((time.perf_counter() - t_parse_start) * 1000.0, 2)
                 return ExtractionResult(
                     success=False,
                     error_message=f"Model output parsing error: {parse_err}",
                     model_used=model_name,
                     raw_response_text=raw_text,
                     is_demo=False,
+                    preprocessing_time_ms=preprocessing_time_ms,
+                    api_latency_ms=api_latency_ms,
+                    parsing_validation_time_ms=parse_ms,
+                    total_request_time_ms=round(preprocessing_time_ms + api_latency_ms + parse_ms, 2),
+                    payload_size_bytes=payload_size_bytes,
                 )
 
             if isinstance(parsed_data, dict):
@@ -304,18 +393,26 @@ class GemmaLedgerExtractor:
                     parsed_data = [parsed_data]
 
             if not isinstance(parsed_data, list):
+                parse_ms = round((time.perf_counter() - t_parse_start) * 1000.0, 2)
                 return ExtractionResult(
                     success=False,
                     error_message="Model returned invalid JSON structure (expected an array).",
                     model_used=model_name,
                     raw_response_text=raw_text,
                     is_demo=False,
+                    preprocessing_time_ms=preprocessing_time_ms,
+                    api_latency_ms=api_latency_ms,
+                    parsing_validation_time_ms=parse_ms,
+                    total_request_time_ms=round(preprocessing_time_ms + api_latency_ms + parse_ms, 2),
+                    payload_size_bytes=payload_size_bytes,
                 )
 
             rows = raw_dicts_to_extracted_rows(parsed_data)
             needs_review_count = sum(1 for r in rows if r.needs_review)
+            parse_ms = round((time.perf_counter() - t_parse_start) * 1000.0, 2)
+            total_ms = round(preprocessing_time_ms + api_latency_ms + parse_ms, 2)
 
-            return ExtractionResult(
+            res = ExtractionResult(
                 success=True,
                 rows=rows,
                 model_used=model_name,
@@ -323,9 +420,36 @@ class GemmaLedgerExtractor:
                 is_demo=False,
                 total_rows=len(rows),
                 rows_needing_review=needs_review_count,
+                preprocessing_time_ms=preprocessing_time_ms,
+                api_latency_ms=api_latency_ms,
+                parsing_validation_time_ms=parse_ms,
+                total_request_time_ms=total_ms,
+                payload_size_bytes=payload_size_bytes,
+                latency_breakdown={
+                    "preprocessing_ms": preprocessing_time_ms,
+                    "api_latency_ms": api_latency_ms,
+                    "parsing_validation_ms": parse_ms,
+                    "total_request_ms": total_ms,
+                },
             )
 
+            # Store in cache
+            self._cache[cache_key] = res
+
+            logger.info(
+                "Gemma Ledger Extraction: Total=%.1fms (Prep=%.1fms, API=%.1fms, Parse/Val=%.1fms), Rows=%d, Payload=%d bytes",
+                total_ms,
+                preprocessing_time_ms,
+                api_latency_ms,
+                parse_ms,
+                len(rows),
+                payload_size_bytes,
+            )
+
+            return res
+
         except Exception as e:
+            api_latency_ms = round((time.perf_counter() - t_api_start) * 1000.0, 2)
             err_msg = str(e)
             err_type = type(e).__name__
             if "API_KEY_INVALID" in err_msg or "401" in err_msg or "invalid api key" in err_msg.lower():
@@ -336,14 +460,22 @@ class GemmaLedgerExtractor:
                 guidance = f"API Quota / Rate limit exceeded for '{model_name}'. Please wait and retry. ({err_msg})"
             elif "NOT_FOUND" in err_msg or "404" in err_msg:
                 guidance = f"Model '{model_name}' not found or unsupported for multimodal generateContent: Verify GEMMA_MODEL configuration. ({err_msg})"
+            elif "timeout" in err_msg.lower() or "deadline" in err_msg.lower():
+                guidance = f"Gemma API request timed out ({err_msg}). The system automatically trimmed payload size; please retry."
             else:
                 guidance = f"Gemma extraction request failed ({err_type}): {err_msg}"
+
+            logger.error("Gemma extraction error after %.1fms: %s", api_latency_ms, err_msg)
 
             return ExtractionResult(
                 success=False,
                 error_message=guidance,
                 model_used=model_name,
                 is_demo=False,
+                preprocessing_time_ms=preprocessing_time_ms,
+                api_latency_ms=api_latency_ms,
+                total_request_time_ms=round(preprocessing_time_ms + api_latency_ms, 2),
+                payload_size_bytes=payload_size_bytes,
             )
 
 

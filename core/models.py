@@ -135,6 +135,7 @@ try:
         amount: Optional[float] = None
         paid: Optional[float] = None
         due: Optional[float] = None
+        payment_status: Optional[str] = None
         raw_text: str = Field(default="", description="Verbatim handwritten line")
         field_confidence: Dict[str, float] = Field(default_factory=dict)
         candidate_readings: Dict[str, Any] = Field(default_factory=dict)
@@ -164,7 +165,11 @@ try:
             tx_type = TransactionType.CREDIT
             if self.due is not None and self.due > 0:
                 tx_type = TransactionType.CREDIT
-            elif self.paid is not None and self.paid > 0 and (self.due is None or self.due == 0):
+            elif (self.due is None or self.due == 0) and (
+                (self.paid is not None and self.paid > 0)
+                or (self.payment_status and ("fully paid" in self.payment_status.lower() or "✅" in self.payment_status))
+                or (self.due == 0)
+            ):
                 tx_type = TransactionType.CASH
 
             return LedgerEntry(
@@ -200,6 +205,12 @@ try:
         raw_response_text: Optional[str] = None
         total_rows: int = 0
         rows_needing_review: int = 0
+        preprocessing_time_ms: float = 0.0
+        api_latency_ms: float = 0.0
+        parsing_validation_time_ms: float = 0.0
+        total_request_time_ms: float = 0.0
+        payload_size_bytes: int = 0
+        latency_breakdown: Dict[str, float] = Field(default_factory=dict)
 
     HAS_PYDANTIC = True
 
@@ -319,7 +330,11 @@ except ImportError:
             tx_type = TransactionType.CREDIT
             if self.due is not None and self.due > 0:
                 tx_type = TransactionType.CREDIT
-            elif self.paid is not None and self.paid > 0 and (self.due is None or self.due == 0):
+            elif (self.due is None or self.due == 0) and (
+                (self.paid is not None and self.paid > 0)
+                or (self.payment_status and ("fully paid" in self.payment_status.lower() or "✅" in self.payment_status))
+                or (self.due == 0)
+            ):
                 tx_type = TransactionType.CASH
 
             return LedgerEntry(
@@ -353,5 +368,11 @@ except ImportError:
         raw_response_text: Optional[str] = None
         total_rows: int = 0
         rows_needing_review: int = 0
+        preprocessing_time_ms: float = 0.0
+        api_latency_ms: float = 0.0
+        parsing_validation_time_ms: float = 0.0
+        total_request_time_ms: float = 0.0
+        payload_size_bytes: int = 0
+        latency_breakdown: Dict[str, float] = field(default_factory=dict)
 
     HAS_PYDANTIC = False

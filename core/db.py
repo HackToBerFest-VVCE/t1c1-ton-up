@@ -108,6 +108,64 @@ def fetch_available_shops(
         return []
 
 
+def resolve_owner_shop(
+    owner_id: Optional[str] = None,
+    auth_user: Optional[Dict[str, Any]] = None,
+    access_token: Optional[str] = None,
+    is_admin: bool = False,
+    current_selected_id: Optional[str] = None,
+    client: Optional[Any] = None,
+) -> Tuple[Optional[str], str, Optional[Dict[str, Any]]]:
+    """Automatically resolves the single shop associated with the authenticated owner.
+
+    Guarantees:
+    - Never creates duplicate shops on login.
+    - Scopes to shops owned by the authenticated user (owner_id == target_owner_id).
+    - If is_admin is True and no shop is directly owned by admin, falls back to the system's registered shop.
+    - If current_selected_id is provided and valid, preserves that shop.
+    - Returns (shop_id, shop_name, shop_dict). If no shop is found, returns (None, "Kirana Store", None).
+    """
+    target_uid = owner_id
+    if not target_uid and auth_user and isinstance(auth_user, dict):
+        target_uid = auth_user.get("id")
+
+    # 1. Fetch shops owned by this user
+    owned_shops: List[Dict[str, Any]] = []
+    if target_uid:
+        owned_shops = fetch_available_shops(
+            client=client,
+            owner_id=target_uid,
+            access_token=access_token,
+            is_admin=False,
+        )
+
+    # If owner has matching shops, select the active one or the first one
+    if owned_shops:
+        if current_selected_id:
+            for s in owned_shops:
+                if str(s.get("id")) == str(current_selected_id):
+                    return str(s.get("id")), str(s.get("name") or "Kirana Store"), s
+        first_shop = owned_shops[0]
+        return str(first_shop.get("id")), str(first_shop.get("name") or "Kirana Store"), first_shop
+
+    # 2. If is_admin is True and admin has no personal shop, check all available shops
+    if is_admin:
+        all_shops = fetch_available_shops(
+            client=client,
+            access_token=access_token,
+            is_admin=True,
+        )
+        if all_shops:
+            if current_selected_id:
+                for s in all_shops:
+                    if str(s.get("id")) == str(current_selected_id):
+                        return str(s.get("id")), str(s.get("name") or "Kirana Store"), s
+            first_shop = all_shops[0]
+            return str(first_shop.get("id")), str(first_shop.get("name") or "Kirana Store"), first_shop
+
+    return None, "Kirana Store", None
+
+
 def verify_shop_exists(
     shop_id: str, client: Optional[Any] = None, access_token: Optional[str] = None
 ) -> bool:
@@ -217,6 +275,147 @@ def assign_shop_owner(
         return False, f"Database error assigning shop: {err_msg}"
 
 
+def update_shop(
+    shop_id: str,
+    shop_data: Dict[str, Any],
+    client: Optional[Any] = None,
+    access_token: Optional[str] = None,
+) -> Tuple[bool, Optional[str]]:
+    """Updates an existing shop's metadata in Supabase PostgreSQL (Admin/Owner feature).
+
+    Allowed editable fields: name, owner_name, phone, address, default_language.
+
+    Returns:
+        (success, error_message)
+    """
+    clean_sid = str(shop_id or "").strip()
+    if not clean_sid:
+        return False, "Shop ID is required."
+
+    name = str(shop_data.get("name") or "").strip()
+    if not name:
+        return False, "Shop name is required."
+
+    client = _resolve_client(client=client, access_token=access_token)
+    if client is None:
+        return False, "Supabase client is not connected or configured."
+
+    update_payload: Dict[str, Any] = {
+        "name": name,
+        "owner_name": str(shop_data.get("owner_name") or "").strip() or None,
+        "phone": str(shop_data.get("phone") or "").strip() or None,
+        "address": str(shop_data.get("address") or "").strip() or None,
+        "default_language": str(shop_data.get("default_language") or "kn").strip(),
+    }
+    if "owner_id" in shop_data:
+        oid = shop_data.get("owner_id")
+        update_payload["owner_id"] = str(oid).strip() if oid else None
+
+    try:
+        response = (
+            client.table("shops")
+            .update(update_payload)
+            .eq("id", clean_sid)
+            .execute()
+        )
+        if response.data and len(response.data) > 0:
+            return True, None
+        return False, f"Shop ID '{clean_sid}' not found or update returned no rows."
+    except Exception as exc:
+        err_msg = str(exc)
+        if "42501" in err_msg or "row-level security" in err_msg.lower():
+            return (
+                False,
+                "RLS_ERROR_42501: Insufficient privileges to update this shop. "
+                "Only authorized administrators or the shop owner can modify shop details.",
+            )
+        return False, f"Database error updating shop: {err_msg}"
+
+
+def count_shop_ledger_entries(
+    shop_id: str,
+    client: Optional[Any] = None,
+    access_token: Optional[str] = None,
+) -> int:
+    """Returns the total number of ledger entries associated with a shop."""
+    clean_sid = str(shop_id or "").strip()
+    if not clean_sid:
+        return 0
+
+    client = _resolve_client(client=client, access_token=access_token)
+    if client is None:
+        return 0
+
+    try:
+        response = (
+            client.table("ledger_entries")
+            .select("id")
+            .eq("shop_id", clean_sid)
+            .execute()
+        )
+        return len(response.data) if response.data else 0
+    except Exception:
+        return 0
+
+
+def delete_shop(
+    shop_id: str,
+    client: Optional[Any] = None,
+    access_token: Optional[str] = None,
+    allow_cascade: bool = False,
+) -> Tuple[bool, Optional[str], int]:
+    """Deletes a shop record from Supabase PostgreSQL (Admin only).
+
+    Guarantees:
+    - Never deletes the shopkeeper's authentication account (auth.users).
+    - If allow_cascade is False and the shop contains ledger entries, blocks deletion
+      to prevent accidental cascade-deletion of historical financial records.
+    - If allow_cascade is True or entry count is 0, deletes the shop record.
+
+    Returns:
+        (success, error_message, entry_count)
+    """
+    clean_sid = str(shop_id or "").strip()
+    if not clean_sid:
+        return False, "Shop ID is required.", 0
+
+    client = _resolve_client(client=client, access_token=access_token)
+    if client is None:
+        return False, "Supabase client is not connected or configured.", 0
+
+    # Step 1: Count entries to prevent accidental cascade deletion
+    entry_count = count_shop_ledger_entries(clean_sid, client=client, access_token=access_token)
+    if entry_count > 0 and not allow_cascade:
+        return (
+            False,
+            f"Cannot delete shop because it contains {entry_count} transaction records. "
+            "Deletion is blocked to prevent accidental loss of historical financial data.",
+            entry_count,
+        )
+
+    # Step 2: Delete shop record
+    try:
+        response = (
+            client.table("shops")
+            .delete()
+            .eq("id", clean_sid)
+            .execute()
+        )
+        if response.data and len(response.data) > 0:
+            return True, None, entry_count
+        return False, f"Shop ID '{clean_sid}' not found or delete returned no rows.", entry_count
+    except Exception as exc:
+        err_msg = str(exc)
+        if "42501" in err_msg or "row-level security" in err_msg.lower():
+            return (
+                False,
+                "RLS_ERROR_42501: Insufficient privileges to delete this shop. "
+                "Only authorized administrators can delete shops.",
+                entry_count,
+            )
+        return False, f"Database error deleting shop: {err_msg}", entry_count
+
+
 def provision_shop_with_owner(
     shop_data: Dict[str, Any],
     owner_email: str,
@@ -227,19 +426,30 @@ def provision_shop_with_owner(
     admin_client: Optional[Any] = None,
     db_client: Optional[Any] = None,
 ) -> Tuple[bool, Optional[str], Optional[str], Optional[str]]:
-    """Provisions a shopkeeper account and creates a linked shop record in one atomic operation.
+    """Provisions a shop and its designated user account in one safe, atomic operation.
 
     1. Validates input fields (shop name, email, password).
     2. Verifies admin authorization.
-    3. Calls admin_create_shopkeeper_account to provision the user and retrieve their UUID.
-    4. Calls create_shop with the new user's UUID as owner_id.
-    5. In case of partial failure (account created but shop creation failed), returns the created
-       User UUID along with a clear recovery path to prevent orphaned/unusable accounts.
+    3. Prevents duplicate accounts on retries:
+       - If user already exists:
+         - If user already owns this shop: returns success (idempotent retry).
+         - If user owns another shop: returns error (single-user-per-shop rule).
+         - If user exists but has no shop: uses existing user UUID to create the shop.
+       - If user does not exist:
+         - Creates the user account via Supabase Auth Admin API.
+    4. Creates the shop linked to user's UUID (shops.owner_id = user_uuid).
+    5. In case of partial failure (user created in this call, but shop creation failed):
+       - Cleans up the orphaned auth user to prevent dangling credentials.
 
     Returns:
         (success, shop_id, user_uuid, error_message)
     """
-    from core.auth import admin_create_shopkeeper_account, is_admin_user
+    from core.auth import (
+        admin_create_user,
+        admin_get_user_by_email,
+        get_admin_auth_client,
+        is_admin_user,
+    )
 
     if not is_admin_user(current_admin_user):
         return False, None, None, "Admin authorization required to provision shops."
@@ -250,28 +460,59 @@ def provision_shop_with_owner(
 
     clean_email = (owner_email or "").strip().lower()
     if not clean_email or "@" not in clean_email:
-        return False, None, None, "A valid shopkeeper email address is required."
+        return False, None, None, "A valid owner email address is required."
 
     if not owner_password or len(owner_password) < 6:
         return False, None, None, "Password must be at least 6 characters long."
 
-    # Step 1: Provision the user account
     user_metadata = {
         "name": str(shop_data.get("owner_name") or "").strip() or None,
         "phone": str(shop_data.get("phone") or "").strip() or None,
     }
-    user_ok, user_uuid, user_err = admin_create_shopkeeper_account(
-        email=clean_email,
-        password=owner_password,
-        user_metadata=user_metadata,
-        current_admin_user=current_admin_user,
+
+    # Step 1: Check if user already exists to avoid duplicate failures on retries
+    user_created_in_this_call = False
+    existing_user = admin_get_user_by_email(
+        clean_email,
         admin_client=admin_client,
         service_role_key=service_role_key,
     )
-    if not user_ok or not user_uuid:
-        return False, None, None, user_err or "Failed to create shopkeeper account."
 
-    # Step 2: Create the shop assigned to the new user's UUID
+    if existing_user:
+        user_uuid = str(existing_user["id"])
+        # Check if this user already owns a registered shop
+        client = _resolve_client(client=db_client, access_token=access_token)
+        if client is not None:
+            try:
+                res = client.table("shops").select("id, name, owner_id").eq("owner_id", user_uuid).execute()
+                if res.data and len(res.data) > 0:
+                    for s in res.data:
+                        if str(s.get("name", "")).strip().lower() == name.lower():
+                            return True, str(s["id"]), user_uuid, None
+                    existing_name = res.data[0].get("name")
+                    return (
+                        False,
+                        None,
+                        user_uuid,
+                        f"An account with email '{clean_email}' already owns registered shop '{existing_name}'. Each account can only access one shop.",
+                    )
+            except Exception:
+                pass
+    else:
+        # Step 2: Provision new user account
+        user_ok, user_uuid, user_err = admin_create_user(
+            email=clean_email,
+            password=owner_password,
+            user_metadata=user_metadata,
+            current_admin_user=current_admin_user,
+            admin_client=admin_client,
+            service_role_key=service_role_key,
+        )
+        if not user_ok or not user_uuid:
+            return False, None, None, user_err or "Failed to create user account."
+        user_created_in_this_call = True
+
+    # Step 3: Create the shop assigned to the user's UUID
     shop_ok, shop_id, shop_err = create_shop(
         shop_data=shop_data,
         owner_id=user_uuid,
@@ -279,12 +520,15 @@ def provision_shop_with_owner(
         client=db_client,
     )
     if not shop_ok or not shop_id:
-        recovery_err = (
-            f"Account created successfully for '{clean_email}', "
-            f"but shop registration failed: {shop_err}. "
-            f"You can link a shop to '{clean_email}' directly using the Reassign Shop tool below without recreating the account."
-        )
-        return False, None, user_uuid, recovery_err
+        # Partial failure handling: delete orphaned user if created in this call
+        if user_created_in_this_call:
+            try:
+                adm = admin_client or get_admin_auth_client(service_role_key)
+                if adm is not None and hasattr(adm, "auth") and hasattr(adm.auth, "admin"):
+                    adm.auth.admin.delete_user(user_uuid)
+            except Exception:
+                pass
+        return False, None, user_uuid, f"Account provisioned for '{clean_email}', but shop registration failed: {shop_err}"
 
     return True, shop_id, user_uuid, None
 

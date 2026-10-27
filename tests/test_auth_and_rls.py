@@ -5,8 +5,10 @@ from unittest.mock import MagicMock, patch
 
 from core.auth import (
     admin_create_shopkeeper_account,
+    admin_create_user,
     admin_get_user_by_email,
     admin_list_shopkeepers,
+    admin_list_users,
     get_admin_auth_client,
     get_authenticated_client,
     get_current_user,
@@ -544,7 +546,60 @@ class TestAuthenticationUIAndRouting(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIsNone(user_uuid)
         self.assertIn("already exists", err or "")
-        self.assertIn("assignment tool", err or "")
+
+    def test_admin_create_user_success_without_shop_creation(self) -> None:
+        """Verifies admin_create_user creates user account with email/pwd and DOES NOT create a shop."""
+        mock_admin_api = MagicMock()
+        mock_admin_api.create_user.return_value = MagicMock(user=MagicMock(id="user-xyz-123"))
+        mock_client = MagicMock(auth=MagicMock(admin=mock_admin_api))
+
+        admin_user = {"email": "admin@tonup.in", "app_metadata": {"role": "admin"}}
+        ok, user_id, err = admin_create_user(
+            email="newuser@kirana.in",
+            password="securepwd123",
+            user_metadata={"name": "New User"},
+            current_admin_user=admin_user,
+            admin_client=mock_client,
+        )
+        self.assertTrue(ok)
+        self.assertEqual(user_id, "user-xyz-123")
+        self.assertIsNone(err)
+
+        # Assert create_user called with proper params
+        mock_admin_api.create_user.assert_called_once()
+        call_args = mock_admin_api.create_user.call_args[0][0]
+        self.assertEqual(call_args["email"], "newuser@kirana.in")
+        self.assertEqual(call_args["password"], "securepwd123")
+        self.assertTrue(call_args["email_confirm"])
+        self.assertEqual(call_args["user_metadata"]["name"], "New User")
+
+    def test_admin_create_user_unauthorized_blocked(self) -> None:
+        """Non-admin user cannot invoke admin_create_user."""
+        normal_user = {"email": "user@kirana.in", "app_metadata": {}}
+        ok, user_id, err = admin_create_user(
+            email="victim@kirana.in",
+            password="password123",
+            current_admin_user=normal_user,
+        )
+        self.assertFalse(ok)
+        self.assertIsNone(user_id)
+        self.assertIn("Admin authorization required", err or "")
+
+    def test_admin_list_users_authorized(self) -> None:
+        """Verifies admin_list_users returns user details including email, id, name, created_at."""
+        mock_u1 = MagicMock(id="u1", email="user1@kirana.in", user_metadata={"name": "User One"}, created_at="2026-01-01")
+        mock_u2 = MagicMock(id="u2", email="user2@kirana.in", user_metadata={}, created_at="2026-01-02")
+        mock_admin_api = MagicMock()
+        mock_admin_api.list_users.return_value = [mock_u1, mock_u2]
+        mock_client = MagicMock(auth=MagicMock(admin=mock_admin_api))
+
+        admin_user = {"email": "admin@tonup.in", "app_metadata": {"role": "admin"}}
+        users = admin_list_users(current_admin_user=admin_user, admin_client=mock_client)
+        self.assertEqual(len(users), 2)
+        self.assertEqual(users[0]["email"], "user1@kirana.in")
+        self.assertEqual(users[0]["name"], "User One")
+        self.assertEqual(users[1]["email"], "user2@kirana.in")
+        self.assertEqual(users[1]["name"], "user2@kirana.in")
 
     def test_provision_shop_with_owner_success(self) -> None:
         """Verifies full automated provisioning: creates user account then creates and links shop."""
@@ -608,7 +663,8 @@ class TestAuthenticationUIAndRouting(unittest.TestCase):
         self.assertIsNone(shop_id)
         self.assertEqual(user_uuid, "user-created-uuid-111")
         self.assertIn("orphan@kirana.in", err or "")
-        self.assertIn("Reassign Shop tool below", err or "")
+        self.assertIn("shop registration failed", err or "")
+        mock_admin_api.delete_user.assert_called_once_with("user-created-uuid-111")
 
     def test_admin_list_shopkeepers_authorized(self) -> None:
         """Verifies admin_list_shopkeepers returns shopkeeper details for an authorized admin."""
@@ -703,16 +759,39 @@ class TestAuthenticationUIAndRouting(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("was not found", err or "")
 
-    def test_admin_ui_no_raw_uuid_inputs_in_app(self) -> None:
-        """Ensures that app.py does not expose manual UUID text inputs in the admin interface."""
+    def test_admin_ui_simplified_for_single_shop_owner(self) -> None:
+        """Ensures that app.py removes unnecessary multi-shopkeeper forms and raw UUID inputs."""
         from pathlib import Path
         app_code = Path("app.py").read_text(encoding="utf-8")
 
         self.assertNotIn("manual_target_uuid", app_code)
         self.assertNotIn("reassign_target_uuid", app_code)
         self.assertNotIn("admin_manual_shop_form", app_code)
-        self.assertIn("admin_reassign_by_email_form", app_code)
-        self.assertIn("admin_provision_form", app_code)
+        self.assertNotIn("admin_reassign_by_email_form", app_code)
+        self.assertNotIn("admin_provision_form", app_code)
+
+    def test_single_owner_shop_isolation(self) -> None:
+        """Verifies that an owner can access only their own shop through resolve_owner_shop."""
+        from core.db import resolve_owner_shop
+
+        mock_client = MagicMock()
+        mock_response = MagicMock(data=[
+            {"id": "shop-owner-1", "name": "Owner 1 Store", "owner_id": "owner-1"}
+        ])
+        mock_client.table.return_value.select.return_value.order.return_value.eq.return_value.execute.return_value = mock_response
+
+        # When owner-1 logs in
+        sid, sname, sdict = resolve_owner_shop(
+            owner_id="owner-1",
+            client=mock_client,
+            is_admin=False,
+        )
+        self.assertEqual(sid, "shop-owner-1")
+        self.assertEqual(sname, "Owner 1 Store")
+        self.assertEqual(sdict["owner_id"], "owner-1")
+
+        # Verify query explicitly filtered by owner_id == owner-1
+        mock_client.table("shops").select.return_value.order.return_value.eq.assert_called_with("owner_id", "owner-1")
 
 
 if __name__ == "__main__":

@@ -209,7 +209,7 @@ def get_admin_auth_client(service_role_key: Optional[str] = None) -> Optional[An
         return None
 
 
-def admin_create_shopkeeper_account(
+def admin_create_user(
     email: str,
     password: str,
     user_metadata: Optional[Dict[str, Any]] = None,
@@ -217,18 +217,19 @@ def admin_create_shopkeeper_account(
     admin_client: Optional[Any] = None,
     service_role_key: Optional[str] = None,
 ) -> Tuple[bool, Optional[str], Optional[str]]:
-    """Creates a new shopkeeper account with administrator authorization.
+    """Creates a new user account with administrator authorization.
 
     1. Enforces admin authorization via is_admin_user(current_admin_user).
     2. Validates email and password format.
     3. Provisions the user with email_confirm=True via Supabase Admin API.
     4. Automatically extracts and returns the user's UUID.
+    5. Does NOT create a shop or associate the user with any shop.
 
     Returns:
         (success, user_uuid, error_message)
     """
     if not is_admin_user(current_admin_user):
-        return False, None, "Admin authorization required to provision shopkeeper accounts."
+        return False, None, "Admin authorization required to create user accounts."
 
     clean_email = (email or "").strip().lower()
     if not clean_email or "@" not in clean_email:
@@ -264,7 +265,7 @@ def admin_create_shopkeeper_account(
                 return (
                     False,
                     None,
-                    f"An account with email '{clean_email}' already exists. Use the assignment tool below to link an existing shopkeeper.",
+                    f"An account with email '{clean_email}' already exists.",
                 )
             return False, None, f"Supabase admin user creation failed: {err}"
 
@@ -282,7 +283,7 @@ def admin_create_shopkeeper_account(
             return (
                 False,
                 None,
-                f"An account with email '{clean_email}' already exists. Use the assignment tool below to link an existing shopkeeper.",
+                f"An account with email '{clean_email}' already exists.",
             )
         return (
             False,
@@ -297,12 +298,15 @@ def admin_create_shopkeeper_account(
         )
 
 
-def admin_list_shopkeepers(
+admin_create_shopkeeper_account = admin_create_user
+
+
+def admin_list_users(
     current_admin_user: Optional[Any] = None,
     service_role_key: Optional[str] = None,
     admin_client: Optional[Any] = None,
 ) -> List[Dict[str, str]]:
-    """Lists existing shopkeepers (email and id) for administrative assignment without exposing UUIDs to UI."""
+    """Lists existing user accounts (email, id, name, created_at) for administrative management."""
     if not is_admin_user(current_admin_user):
         return []
 
@@ -310,24 +314,31 @@ def admin_list_shopkeepers(
     if client is not None and hasattr(client, "auth") and hasattr(client.auth, "admin"):
         try:
             users = client.auth.admin.list_users()
-            shopkeepers: List[Dict[str, str]] = []
+            user_list: List[Dict[str, str]] = []
             for u in users:
                 uid = getattr(u, "id", None)
                 uemail = getattr(u, "email", None)
                 meta = getattr(u, "user_metadata", {}) or {}
                 name = meta.get("name") if isinstance(meta, dict) else ""
+                phone = meta.get("phone") if isinstance(meta, dict) else ""
+                created_at = str(getattr(u, "created_at", None) or "")
                 if uid and uemail:
-                    shopkeepers.append(
+                    user_list.append(
                         {
                             "id": str(uid),
                             "email": str(uemail),
                             "name": str(name) if name else str(uemail),
+                            "phone": str(phone) if phone else "",
+                            "created_at": created_at,
                         }
                     )
-            return shopkeepers
+            return user_list
         except Exception:
             return []
     return []
+
+
+admin_list_shopkeepers = admin_list_users
 
 
 def admin_get_user_by_email(
@@ -344,12 +355,14 @@ def admin_get_user_by_email(
     if client is not None and hasattr(client, "auth") and hasattr(client.auth, "admin"):
         try:
             users = client.auth.admin.list_users()
+            if not isinstance(users, list):
+                return None
             for u in users:
-                u_email = (getattr(u, "email", "") or "").strip().lower()
-                if u_email == clean_email:
+                raw_email = getattr(u, "email", None)
+                if isinstance(raw_email, str) and raw_email.strip().lower() == clean_email:
                     return {
                         "id": str(getattr(u, "id")),
-                        "email": getattr(u, "email", ""),
+                        "email": raw_email,
                         "user_metadata": getattr(u, "user_metadata", {}) or {},
                     }
         except Exception:

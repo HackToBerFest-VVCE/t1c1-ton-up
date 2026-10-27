@@ -103,6 +103,15 @@ try:
         )
         upload_dir: str = Field(default="data/uploads", description="Directory for ledger images")
         max_upload_size_mb: int = Field(default=15, ge=1, le=100, description="Upload limit in MB")
+        max_image_dimension: int = Field(
+            default=1600, ge=400, le=4000, description="Max pixel dimension for ledger images to optimize payload and latency"
+        )
+        image_quality: int = Field(
+            default=88, ge=50, le=100, description="JPEG compression quality for payload transmission"
+        )
+        gemma_timeout_seconds: int = Field(
+            default=35, ge=5, le=120, description="Timeout in seconds for Gemma API calls"
+        )
 
         @field_validator("default_language")
         @classmethod
@@ -172,6 +181,9 @@ except ImportError:
         catalog_match_threshold: float = 75.0
         upload_dir: str = "data/uploads"
         max_upload_size_mb: int = 15
+        max_image_dimension: int = 1600
+        image_quality: int = 88
+        gemma_timeout_seconds: int = 35
 
         def __post_init__(self) -> None:
             if self.default_language not in SUPPORTED_LANGUAGES:

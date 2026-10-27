@@ -211,6 +211,85 @@ class TestGemmaExtractor(unittest.TestCase):
             self.assertIn("Permission Denied for model 'gemma-4-26b-a4b-it'", result.error_message)
             self.assertEqual(result.model_used, "gemma-4-26b-a4b-it")
 
+    def test_extraction_result_latency_fields(self) -> None:
+        """Verifies that latency breakdown and timing fields are populated on ExtractionResult."""
+        extractor = GemmaLedgerExtractor()
+        test_bytes = b"sample_bytes_for_latency_test"
+        result = extractor.extract_from_image(
+            image_bytes=test_bytes,
+            use_demo=True,
+            demo_fixture_name="kannada_ledger_sample.json",
+            preprocessing_time_ms=15.4,
+        )
+        self.assertTrue(result.success)
+        self.assertEqual(result.preprocessing_time_ms, 15.4)
+        self.assertGreater(result.total_request_time_ms, 0)
+        self.assertIn("preprocessing_ms", result.latency_breakdown)
+        self.assertIn("api_latency_ms", result.latency_breakdown)
+        self.assertIn("parsing_validation_ms", result.latency_breakdown)
+        self.assertIn("total_request_ms", result.latency_breakdown)
+        self.assertEqual(result.payload_size_bytes, len(test_bytes))
+
+    def test_extraction_in_memory_cache(self) -> None:
+        """Verifies that duplicate extractions for the exact same image bytes hit the cache."""
+        extractor = GemmaLedgerExtractor()
+        test_bytes = b"unique_image_bytes_cache_test_99"
+        res1 = extractor.extract_from_image(
+            image_bytes=test_bytes,
+            use_demo=True,
+            demo_fixture_name="kannada_ledger_sample.json",
+            preprocessing_time_ms=10.0,
+        )
+        self.assertTrue(res1.success)
+        self.assertFalse(res1.latency_breakdown.get("from_cache", False))
+
+        res2 = extractor.extract_from_image(
+            image_bytes=test_bytes,
+            use_demo=True,
+            demo_fixture_name="kannada_ledger_sample.json",
+            preprocessing_time_ms=10.0,
+        )
+        self.assertTrue(res2.success)
+        self.assertTrue(res2.latency_breakdown.get("from_cache", False))
+        self.assertEqual(res2.total_rows, res1.total_rows)
+
+    @patch("core.extractor.get_config")
+    def test_mocked_live_jpeg_mime_detection(self, mock_get_cfg: MagicMock) -> None:
+        """Verifies that JPEG magic bytes b'\\xff\\xd8' are mapped to image/jpeg in Gemma API calls."""
+        mock_cfg = MagicMock()
+        mock_cfg.is_gemma_configured = True
+        mock_cfg.gemma_api_key = "test_valid_key_12345"
+        mock_cfg.gemma_model_name = "gemma-4-26b-a4b-it"
+        mock_get_cfg.return_value = mock_cfg
+
+        mock_response = MagicMock()
+        mock_response.text = json.dumps([{"row_id": 1, "item": "Rice", "amount": 100.0}])
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+
+        mock_google = MagicMock()
+        mock_genai = MagicMock()
+        mock_types = MagicMock()
+        mock_google.genai = mock_genai
+        mock_genai.Client.return_value = mock_client
+        mock_genai.types = mock_types
+
+        with patch.dict("sys.modules", {"google": mock_google, "google.genai": mock_genai, "google.genai.types": mock_types}):
+            extractor = GemmaLedgerExtractor()
+            extractor.config = mock_cfg
+            jpeg_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF"
+
+            result = extractor.extract_from_image(
+                image_bytes=jpeg_bytes,
+                use_demo=False,
+            )
+            self.assertTrue(result.success)
+            mock_types.Part.from_bytes.assert_called_once_with(
+                data=jpeg_bytes,
+                mime_type="image/jpeg",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

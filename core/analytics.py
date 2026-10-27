@@ -399,6 +399,130 @@ def generate_business_insights(
     return insights
 
 
+def calculate_temporal_summary(
+    entries: List[Union[Dict[str, Any], Any]],
+) -> Dict[str, Any]:
+    """Calculates temporal sales aggregates, date ranges, and daily comparisons.
+
+    Uses decimal-safe arithmetic and handles missing or varied date formats.
+
+    Returns:
+        {
+            "earliest_date": Optional[str],
+            "latest_date": Optional[str],
+            "distinct_days_count": int,
+            "daily_sales": Dict[str, Dict[str, Any]],  # date -> {sales, collected, due, count}
+            "latest_day_sales": float,
+            "previous_days_sales": float,
+            "trend": str,  # 'up', 'down', 'stable', or 'single_day'
+        }
+    """
+    if not entries:
+        return {
+            "earliest_date": None,
+            "latest_date": None,
+            "distinct_days_count": 0,
+            "daily_sales": {},
+            "latest_day_sales": 0.0,
+            "previous_days_sales": 0.0,
+            "trend": "no_data",
+        }
+
+    daily_map: Dict[str, Dict[str, Decimal]] = defaultdict(
+        lambda: {
+            "sales": Decimal("0.00"),
+            "collected": Decimal("0.00"),
+            "due": Decimal("0.00"),
+            "count": Decimal("0"),
+        }
+    )
+
+    valid_dates: List[str] = []
+
+    for entry in entries:
+        raw_date = str(_get_field(entry, "entry_date", "date") or "").strip()
+        date_key = raw_date[:10] if len(raw_date) >= 10 else raw_date
+        if not date_key or date_key.lower() in ("none", "null", "nan"):
+            date_key = "undated"
+        else:
+            valid_dates.append(date_key)
+
+        amt = _safe_decimal(_get_field(entry, "total_amount", "amount"))
+        paid_raw = _get_field(entry, "paid_amount", "paid")
+        due_raw = _get_field(entry, "due_amount", "due")
+        tx_type = str(_get_field(entry, "transaction_type") or "credit").lower()
+
+        paid_dec = to_decimal(paid_raw)
+        due_dec = to_decimal(due_raw)
+
+        if paid_dec is not None and due_dec is not None:
+            paid = paid_dec
+            due = due_dec
+        elif paid_dec is not None and due_dec is None:
+            paid = paid_dec
+            due = max(Decimal("0.00"), amt - paid) if tx_type == "credit" else Decimal("0.00")
+        elif due_dec is not None and paid_dec is None:
+            due = due_dec
+            paid = max(Decimal("0.00"), amt - due)
+        else:
+            if tx_type == "cash":
+                paid = amt
+                due = Decimal("0.00")
+            elif tx_type == "credit":
+                paid = Decimal("0.00")
+                due = amt
+            else:
+                paid = Decimal("0.00")
+                due = Decimal("0.00")
+
+        daily_map[date_key]["sales"] += amt
+        daily_map[date_key]["collected"] += paid
+        daily_map[date_key]["due"] += due
+        daily_map[date_key]["count"] += Decimal("1")
+
+    sorted_dates = sorted([d for d in set(valid_dates) if d != "undated"])
+    earliest_date = sorted_dates[0] if sorted_dates else None
+    latest_date = sorted_dates[-1] if sorted_dates else None
+
+    # Format daily_sales dict for clean consumption
+    formatted_daily: Dict[str, Dict[str, Any]] = {}
+    for d, stats in sorted(daily_map.items()):
+        formatted_daily[d] = {
+            "sales": float(stats["sales"].quantize(Decimal("0.01"))),
+            "collected": float(stats["collected"].quantize(Decimal("0.01"))),
+            "due": float(stats["due"].quantize(Decimal("0.01"))),
+            "count": int(stats["count"]),
+        }
+
+    latest_day_sales = 0.0
+    prev_days_sales = 0.0
+    trend = "single_day"
+
+    if len(sorted_dates) >= 2:
+        latest_day_sales = formatted_daily[latest_date]["sales"]
+        prev_date = sorted_dates[-2]
+        prev_days_sales = formatted_daily[prev_date]["sales"]
+        if latest_day_sales > prev_days_sales:
+            trend = "up"
+        elif latest_day_sales < prev_days_sales:
+            trend = "down"
+        else:
+            trend = "stable"
+    elif len(sorted_dates) == 1:
+        latest_day_sales = formatted_daily[latest_date]["sales"]
+        trend = "single_day"
+
+    return {
+        "earliest_date": earliest_date,
+        "latest_date": latest_date,
+        "distinct_days_count": len(sorted_dates),
+        "daily_sales": formatted_daily,
+        "latest_day_sales": latest_day_sales,
+        "previous_days_sales": prev_days_sales,
+        "trend": trend,
+    }
+
+
 def compute_dashboard_metrics(
     entries: List[Union[Dict[str, Any], Any]],
     lang: str = "en",
@@ -408,10 +532,12 @@ def compute_dashboard_metrics(
     top_products = calculate_top_products(entries, top_n=5)
     customer_balances = calculate_customer_balances(entries)
     insights = generate_business_insights(entries, lang=lang)
+    temporal = calculate_temporal_summary(entries)
 
     return {
         "summary": summary,
         "top_products": top_products,
         "customer_balances": customer_balances,
         "insights": insights,
+        "temporal": temporal,
     }

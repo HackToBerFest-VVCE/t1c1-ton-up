@@ -64,6 +64,12 @@ class TestConfigSafety(unittest.TestCase):
         with self.assertRaises(ValueError):
             AppConfig(default_language="invalid_language_code")
 
+    def test_optimization_config_defaults(self) -> None:
+        cfg = AppConfig()
+        self.assertEqual(cfg.max_image_dimension, 1600)
+        self.assertEqual(cfg.image_quality, 88)
+        self.assertEqual(cfg.gemma_timeout_seconds, 35)
+
     def test_gitignore_protects_env_file(self) -> None:
         root_dir = Path(__file__).resolve().parent.parent
         gitignore_path = root_dir / ".gitignore"
